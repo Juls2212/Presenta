@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Presenta.Companion.ViewModels</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Presenta.Domain\Presenta.Domain.csproj" />
+    <ProjectReference Include="..\Presenta.Server\Presenta.Server.csproj" />
+    <ProjectReference Include="..\Presenta.Targeting\Presenta.Targeting.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Presenta.Companion.ViewModels.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- All Spanish text of the desktop window lives in this resource file (English keys). -->
+    <EmbeddedResource Update="UiStrings.resx" />
+  </ItemGroup>
+
+</Project>
