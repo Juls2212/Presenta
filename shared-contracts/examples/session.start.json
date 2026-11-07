@@ -1,0 +1,1 @@
+{ "version": 1, "type": "session.start", "id": "m-002", "payload": { "plannedSlides": 20, "plannedDurationMs": 900000, "name": "Presentación 31 oct" } }
