@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Presenta.Protocol</RootNamespace>
+  </PropertyGroup>
+
+</Project>
