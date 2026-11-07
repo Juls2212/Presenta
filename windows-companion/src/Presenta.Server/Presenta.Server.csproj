@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Presenta.Server</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Presenta.Domain\Presenta.Domain.csproj" />
+    <ProjectReference Include="..\Presenta.Protocol\Presenta.Protocol.csproj" />
+  </ItemGroup>
+
+</Project>
