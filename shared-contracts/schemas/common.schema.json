@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://presenta.local/protocol/v1/common.schema.json",
+  "title": "Common types for protocol v1",
+  "$defs": {
+    "timestamp": {
+      "description": "UTC instant in ISO 8601. Must end in Z; offsets are not accepted.",
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,7})?Z$"
+    },
+    "durationMs": {
+      "description": "Non-negative duration in integer milliseconds.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "signedDurationMs": {
+      "description": "Duration in integer milliseconds. Negative values are allowed (for example remaining time in overtime).",
+      "type": "integer"
+    },
+    "slideCount": {
+      "description": "Number of slides in a session.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 999
+    },
+    "slideNumber": {
+      "description": "1-based slide number.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 999
+    },
+    "errorCode": {
+      "type": "string",
+      "enum": [
+        "invalidPairingCode",
+        "pairingLockedOut",
+        "notPaired",
+        "unsupportedVersion",
+        "invalidMessage",
+        "invalidState",
+        "slideOutOfRange",
+        "noActiveSession",
+        "targetWindowUnavailable",
+        "keyDeliveryFailed",
+        "internalError"
+      ]
+    },
+    "sessionState": {
+      "type": "string",
+      "enum": ["configured", "running", "paused", "finished"]
+    },
+    "finalState": {
+      "type": "string",
+      "enum": ["finishedManually", "endedWhilePaused", "interruptedByDisconnection"]
+    },
+    "paceStatus": {
+      "type": "string",
+      "enum": ["onTrack", "behind", "tooFast", "notEnoughData"]
+    },
+    "alertKind": {
+      "type": "string",
+      "enum": ["timeRunningOut", "timeCritical", "overtime", "behindSchedule", "tooFast"]
+    },
+    "alertSeverity": {
+      "type": "string",
+      "enum": ["info", "warning", "critical"]
+    },
+    "recommendationCode": {
+      "type": "string",
+      "enum": ["onTrack", "speedUpSlightly", "speedUpNow", "slowDown", "wrapUp", "overtime"]
+    },
+    "alert": {
+      "type": "object",
+      "required": ["kind", "severity", "raisedAtElapsedMs", "remainingMs", "slidesRemaining", "slideDeviation"],
+      "properties": {
+        "kind": { "$ref": "#/$defs/alertKind" },
+        "severity": { "$ref": "#/$defs/alertSeverity" },
+        "raisedAtElapsedMs": { "$ref": "#/$defs/durationMs" },
+        "remainingMs": { "$ref": "#/$defs/signedDurationMs" },
+        "slidesRemaining": { "type": "integer", "minimum": 0 },
+        "slideDeviation": { "type": "integer" }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["code", "slidesRemaining", "timeRemainingMs", "freeText"],
+      "properties": {
+        "code": { "$ref": "#/$defs/recommendationCode" },
+        "slidesRemaining": { "type": "integer", "minimum": 0 },
+        "timeRemainingMs": { "$ref": "#/$defs/signedDurationMs" },
+        "freeText": { "type": ["string", "null"] }
+      }
+    },
+    "sessionSnapshot": {
+      "description": "State of one session. Elapsed time excludes paused time.",
+      "type": "object",
+      "required": [
+        "state", "name", "currentSlide", "totalSlides", "plannedDurationMs", "elapsedMs", "remainingMs",
+        "running", "progressRatio", "paceStatus", "slidesRemaining", "averageSlidesPerMinute",
+        "finalState", "activeAlert", "recommendation"
+      ],
+      "properties": {
+        "state": { "$ref": "#/$defs/sessionState" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "currentSlide": { "$ref": "#/$defs/slideNumber" },
+        "totalSlides": { "$ref": "#/$defs/slideCount" },
+        "plannedDurationMs": { "$ref": "#/$defs/durationMs" },
+        "elapsedMs": { "$ref": "#/$defs/durationMs" },
+        "remainingMs": { "$ref": "#/$defs/signedDurationMs" },
+        "running": { "type": "boolean" },
+        "progressRatio": { "type": "number", "minimum": 0, "maximum": 1 },
+        "paceStatus": { "$ref": "#/$defs/paceStatus" },
+        "slidesRemaining": { "type": "integer", "minimum": 0 },
+        "averageSlidesPerMinute": { "type": "number", "minimum": 0 },
+        "finalState": {
+          "oneOf": [{ "$ref": "#/$defs/finalState" }, { "type": "null" }]
+        },
+        "activeAlert": {
+          "oneOf": [{ "$ref": "#/$defs/alert" }, { "type": "null" }]
+        },
+        "recommendation": {
+          "oneOf": [{ "$ref": "#/$defs/recommendation" }, { "type": "null" }]
+        }
+      }
+    },
+    "statePayload": {
+      "description": "Full state of the companion. session is null when there is no active session.",
+      "type": "object",
+      "required": ["serverTimeUtc", "session"],
+      "properties": {
+        "serverTimeUtc": { "$ref": "#/$defs/timestamp" },
+        "session": {
+          "oneOf": [{ "$ref": "#/$defs/sessionSnapshot" }, { "type": "null" }]
+        }
+      }
+    },
+    "historyItem": {
+      "type": "object",
+      "required": [
+        "name", "finishedAtUtc", "plannedDurationMs", "actualDurationMs", "plannedSlides",
+        "registeredSlides", "averageSlidesPerMinute", "finalState", "endedWithinPlannedTime"
+      ],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "finishedAtUtc": { "$ref": "#/$defs/timestamp" },
+        "plannedDurationMs": { "$ref": "#/$defs/durationMs" },
+        "actualDurationMs": { "$ref": "#/$defs/durationMs" },
+        "plannedSlides": { "$ref": "#/$defs/slideCount" },
+        "registeredSlides": { "$ref": "#/$defs/slideNumber" },
+        "averageSlidesPerMinute": { "type": "number", "minimum": 0 },
+        "finalState": { "$ref": "#/$defs/finalState" },
+        "endedWithinPlannedTime": { "type": "boolean" }
+      }
+    }
+  }
+}
