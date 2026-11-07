@@ -1,0 +1,56 @@
+# ---- Android / Gradle ----
+.gradle/
+.kotlin/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+local.properties
+*.apk
+*.aab
+*.ap_
+*.dex
+captures/
+.externalNativeBuild/
+.cxx/
+*.hprof
+*.keystore
+*.jks
+
+# ---- Android Studio / IntelliJ ----
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# ---- .NET / Visual Studio ----
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.csproj.user
+TestResults/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+*.nupkg
+*.log
+.vscode/
+publish/
+
+# ---- SQLite artifacts ----
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.sqlite-shm
+*.sqlite-wal
+
+# ---- OS noise ----
+Thumbs.db
+desktop.ini
+.DS_Store
