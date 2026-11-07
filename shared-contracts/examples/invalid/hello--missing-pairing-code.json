@@ -1,0 +1,1 @@
+{ "version": 1, "type": "hello", "id": "m-101", "payload": { "protocolVersion": 1, "clientName": "Wear OS emulator" } }
