@@ -1,0 +1,1 @@
+{ "version": 1, "type": "command.result", "id": "s-022", "payload": { "correlationId": "m-010", "ok": false, "errorCode": "targetWindowUnavailable" } }
