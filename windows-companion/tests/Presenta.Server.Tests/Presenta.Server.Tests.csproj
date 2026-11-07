@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Presenta.Server\Presenta.Server.csproj" />
+    <ProjectReference Include="..\..\src\Presenta.Persistence\Presenta.Persistence.csproj" />
+    <ProjectReference Include="..\..\src\Presenta.Protocol\Presenta.Protocol.csproj" />
+    <ProjectReference Include="..\..\src\Presenta.Domain\Presenta.Domain.csproj" />
+    <ProjectReference Include="..\Presenta.TestSupport\Presenta.TestSupport.csproj" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>
