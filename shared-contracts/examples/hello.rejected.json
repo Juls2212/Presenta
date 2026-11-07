@@ -1,0 +1,1 @@
+{ "version": 1, "type": "hello.rejected", "id": "s-003", "payload": { "reason": "invalidPairingCode" } }
