@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "type": "state.update",
+  "id": "s-014",
+  "payload": {
+    "serverTimeUtc": "2026-10-31T15:15:00.000Z",
+    "session": {
+      "state": "finished",
+      "name": "Demo",
+      "currentSlide": 20,
+      "totalSlides": 20,
+      "plannedDurationMs": 900000,
+      "elapsedMs": 872000,
+      "remainingMs": 28000,
+      "running": false,
+      "progressRatio": 1,
+      "paceStatus": "onTrack",
+      "slidesRemaining": 0,
+      "averageSlidesPerMinute": 1.376,
+      "finalState": "finishedManually",
+      "activeAlert": null,
+      "recommendation": null
+    }
+  }
+}
