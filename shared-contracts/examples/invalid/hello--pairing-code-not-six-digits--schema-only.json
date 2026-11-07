@@ -1,0 +1,1 @@
+{ "version": 1, "type": "hello", "id": "m-102", "payload": { "pairingCode": "12345", "protocolVersion": 1, "clientName": "Wear OS emulator" } }
