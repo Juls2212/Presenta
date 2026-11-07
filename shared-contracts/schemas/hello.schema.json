@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://presenta.local/protocol/v1/hello.schema.json",
+  "title": "hello (watch to companion)",
+  "allOf": [{ "$ref": "envelope.schema.json" }],
+  "properties": {
+    "type": { "const": "hello" },
+    "payload": {
+      "type": "object",
+      "required": ["pairingCode", "protocolVersion", "clientName"],
+      "properties": {
+        "pairingCode": { "type": "string", "pattern": "^[0-9]{6}$" },
+        "protocolVersion": { "type": "integer", "minimum": 1 },
+        "clientName": { "type": "string", "minLength": 1, "maxLength": 64 }
+      }
+    }
+  }
+}
