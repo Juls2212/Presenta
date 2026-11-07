@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://presenta.local/protocol/v1/session.start.schema.json",
+  "title": "session.start (watch to companion)",
+  "allOf": [{ "$ref": "envelope.schema.json" }],
+  "properties": {
+    "type": { "const": "session.start" },
+    "payload": {
+      "type": "object",
+      "required": ["plannedSlides", "plannedDurationMs"],
+      "properties": {
+        "plannedSlides": { "$ref": "common.schema.json#/$defs/slideCount" },
+        "plannedDurationMs": { "type": "integer", "minimum": 1000, "maximum": 43200000 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 100 }
+      }
+    }
+  }
+}
