@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Presenta.TestSupport</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Presenta.Domain\Presenta.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Presenta.Targeting\Presenta.Targeting.csproj" />
+  </ItemGroup>
+
+</Project>
