@@ -1,0 +1,1 @@
+{ "version": 1, "type": "hello.accepted", "id": "s-001", "payload": { "protocolVersion": 1, "state": { "serverTimeUtc": "2026-10-31T15:00:00.000Z", "session": null } } }
