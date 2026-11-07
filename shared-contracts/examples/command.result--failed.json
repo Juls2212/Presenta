@@ -1,0 +1,1 @@
+{ "version": 1, "type": "command.result", "id": "s-021", "payload": { "correlationId": "m-009", "ok": false, "errorCode": "slideOutOfRange" } }
