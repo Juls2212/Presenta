@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://presenta.local/protocol/v1/state.update.schema.json",
+  "title": "state.update (companion to watch)",
+  "allOf": [{ "$ref": "envelope.schema.json" }],
+  "properties": {
+    "type": { "const": "state.update" },
+    "payload": { "$ref": "common.schema.json#/$defs/statePayload" }
+  }
+}
