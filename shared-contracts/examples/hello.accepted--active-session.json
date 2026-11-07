@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "type": "hello.accepted",
+  "id": "s-002",
+  "payload": {
+    "protocolVersion": 1,
+    "state": {
+      "serverTimeUtc": "2026-10-31T15:08:32.000Z",
+      "session": {
+        "state": "running",
+        "name": "Presentación 31 oct",
+        "currentSlide": 7,
+        "totalSlides": 20,
+        "plannedDurationMs": 900000,
+        "elapsedMs": 512000,
+        "remainingMs": 388000,
+        "running": true,
+        "progressRatio": 0.35,
+        "paceStatus": "behind",
+        "slidesRemaining": 13,
+        "averageSlidesPerMinute": 0.82,
+        "finalState": null,
+        "activeAlert": null,
+        "recommendation": { "code": "speedUpSlightly", "slidesRemaining": 13, "timeRemainingMs": 388000, "freeText": null }
+      }
+    }
+  }
+}
