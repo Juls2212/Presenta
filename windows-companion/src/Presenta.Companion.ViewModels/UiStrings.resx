@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  All user-visible text of the Presenta desktop window (Spanish, Colombia). Keys are English.
+  Placeholders such as {0} are filled by UiText.Format. Nothing else in the solution contains Spanish.
+-->
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+
+  <!-- Window and server -->
+  <data name="Window_Title" xml:space="preserve"><value>Presenta</value></data>
+  <data name="Window_Subtitle" xml:space="preserve"><value>Control de presentaciones desde el reloj</value></data>
+  <data name="Server_Running" xml:space="preserve"><value>Servidor activo</value></data>
+  <data name="Server_Stopped" xml:space="preserve"><value>Servidor detenido</value></data>
+  <data name="Server_Start" xml:space="preserve"><value>Iniciar servidor</value></data>
+  <data name="Server_Stop" xml:space="preserve"><value>Detener servidor</value></data>
+  <data name="Server_Error" xml:space="preserve"><value>No se pudo iniciar el servidor: {0}</value></data>
+  <data name="Startup_Error" xml:space="preserve"><value>Presenta no pudo iniciar: {0}</value></data>
+
+  <!-- Pairing -->
+  <data name="Pairing_Title" xml:space="preserve"><value>Código de vinculación</value></data>
+  <data name="Pairing_Hint" xml:space="preserve"><value>Escribe este código en el reloj</value></data>
+  <data name="Pairing_Regenerate" xml:space="preserve"><value>Generar código nuevo</value></data>
+
+  <!-- Connection -->
+  <data name="Connection_Title" xml:space="preserve"><value>Conexión</value></data>
+  <data name="Connection_Port" xml:space="preserve"><value>Puerto {0}</value></data>
+  <data name="Address_Emulator" xml:space="preserve"><value>Emulador del reloj: ws://10.0.2.2:{0}</value></data>
+  <data name="Address_Localhost" xml:space="preserve"><value>Con adb reverse: ws://localhost:{0}</value></data>
+  <data name="Address_Lan" xml:space="preserve"><value>Reloj físico: ws://{0}:{1}</value></data>
+  <data name="Address_LanOff" xml:space="preserve"><value>Activa la red local para usar un reloj físico</value></data>
+  <data name="Toggle_LocalNetwork" xml:space="preserve"><value>Permitir reloj físico en la red local</value></data>
+  <data name="Toggle_LocalNetwork_Hint" xml:space="preserve"><value>Si está apagado, solo el emulador y este computador pueden conectarse</value></data>
+  <data name="Toggle_SendKeys" xml:space="preserve"><value>Enviar teclas a la presentación</value></data>
+  <data name="Toggle_SendKeys_Hint" xml:space="preserve"><value>Si está apagado, el contador avanza pero no se presiona ninguna tecla</value></data>
+
+  <!-- Watch and session -->
+  <data name="Watch_Title" xml:space="preserve"><value>Reloj</value></data>
+  <data name="Watch_Waiting" xml:space="preserve"><value>Esperando al reloj</value></data>
+  <data name="Watch_Connected" xml:space="preserve"><value>Reloj conectado</value></data>
+  <data name="Session_Title" xml:space="preserve"><value>Presentación</value></data>
+  <data name="Session_None" xml:space="preserve"><value>Sin presentación activa</value></data>
+  <data name="Session_Slide" xml:space="preserve"><value>Diapositiva {0} de {1}</value></data>
+  <data name="Session_Remaining" xml:space="preserve"><value>Quedan {0}</value></data>
+  <data name="Session_Overtime" xml:space="preserve"><value>Pasaste {0}</value></data>
+  <data name="Session_Paused" xml:space="preserve"><value>En pausa</value></data>
+
+  <!-- Activity list -->
+  <data name="Events_Title" xml:space="preserve"><value>Actividad reciente</value></data>
+  <data name="Events_Empty" xml:space="preserve"><value>Aún no hay actividad</value></data>
+  <data name="Event_Line" xml:space="preserve"><value>{0}  {1}</value></data>
+  <data name="Event_WatchConnected" xml:space="preserve"><value>Reloj conectado</value></data>
+  <data name="Event_WatchDisconnected" xml:space="preserve"><value>Reloj desconectado</value></data>
+  <data name="Event_WatchReplaced" xml:space="preserve"><value>Otro reloj reemplazó la conexión anterior</value></data>
+  <data name="Event_PairingRejected" xml:space="preserve"><value>Código de vinculación incorrecto</value></data>
+  <data name="Event_PairingLockedOut" xml:space="preserve"><value>Demasiados intentos: conexión bloqueada por un momento</value></data>
+  <data name="Event_SessionStarted" xml:space="preserve"><value>Presentación iniciada</value></data>
+  <data name="Event_SessionPaused" xml:space="preserve"><value>Presentación en pausa</value></data>
+  <data name="Event_SessionResumed" xml:space="preserve"><value>Presentación reanudada</value></data>
+  <data name="Event_SessionFinished" xml:space="preserve"><value>Presentación finalizada y guardada</value></data>
+  <data name="Event_SessionInterrupted" xml:space="preserve"><value>Presentación interrumpida por pérdida de conexión</value></data>
+  <data name="Event_NextKeySent" xml:space="preserve"><value>Siguiente enviado</value></data>
+  <data name="Event_PreviousKeySent" xml:space="preserve"><value>Anterior enviado</value></data>
+  <data name="Event_SlideCounterChanged" xml:space="preserve"><value>Diapositiva {0} (sin enviar tecla)</value></data>
+  <data name="Event_SlideSet" xml:space="preserve"><value>Contador ajustado a la diapositiva {0}</value></data>
+  <data name="Event_AlertRaised" xml:space="preserve"><value>Alerta enviada al reloj</value></data>
+  <data name="Event_KeyFailed" xml:space="preserve"><value>No se pudo enviar la tecla</value></data>
+  <data name="Event_StartRejectedNoTarget" xml:space="preserve"><value>No se inició: falta elegir la ventana de la presentación</value></data>
+
+  <!-- Presentation window (target) -->
+  <data name="Target_Title" xml:space="preserve"><value>Ventana de la presentación</value></data>
+  <data name="Target_Hint" xml:space="preserve"><value>Elige la ventana donde se muestran las diapositivas. Las teclas solo se envían a esa ventana.</value></data>
+  <data name="Target_Refresh" xml:space="preserve"><value>Actualizar lista</value></data>
+  <data name="Target_Verify" xml:space="preserve"><value>Verificar</value></data>
+  <data name="Target_Empty" xml:space="preserve"><value>No se encontraron ventanas. Abre la presentación y actualiza la lista.</value></data>
+  <data name="Target_KeysOff" xml:space="preserve"><value>Las teclas están apagadas: no hace falta elegir una ventana.</value></data>
+  <data name="Target_Item" xml:space="preserve"><value>{0} ({1})</value></data>
+  <data name="Target_ItemSuggested" xml:space="preserve"><value>Sugerida: {0} ({1})</value></data>
+  <data name="Target_Status_None" xml:space="preserve"><value>Ninguna ventana elegida</value></data>
+  <data name="Target_Status_Ready" xml:space="preserve"><value>Lista: la ventana está disponible</value></data>
+  <data name="Target_Status_Minimized" xml:space="preserve"><value>Minimizada: se restaurará al enviar una tecla</value></data>
+  <data name="Target_Status_NotFound" xml:space="preserve"><value>No se encuentra la ventana elegida. Actualiza la lista y vuelve a elegirla.</value></data>
+  <data name="Target_Status_Ambiguous" xml:space="preserve"><value>Hay varias ventanas iguales. Cierra las que sobren o elige la correcta otra vez.</value></data>
+  <data name="Target_Status_Elevated" xml:space="preserve"><value>La ventana se ejecuta como administrador y Windows bloquea las teclas. Abre Presenta también como administrador.</value></data>
+  <data name="Target_Verify_Ok" xml:space="preserve"><value>Verificada: la ventana pasó al frente</value></data>
+  <data name="Target_Verify_Refused" xml:space="preserve"><value>Windows no dejó traer la ventana al frente. Haz clic en ella e inténtalo de nuevo.</value></data>
+  <data name="Target_Verify_NotConfirmed" xml:space="preserve"><value>La ventana no llegó a quedar al frente. Inténtalo de nuevo.</value></data>
+</root>
