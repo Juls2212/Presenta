@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    A tiny window used only by the opt-in desktop test. It opens a titled window, brings itself to the front and appends every
+    Right or Left arrow key it receives to a log file. It is never part of the product.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>Presenta.WindowProbe</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Presenta.Keyboard.Windows\Presenta.Keyboard.Windows.csproj" />
+  </ItemGroup>
+
+</Project>
