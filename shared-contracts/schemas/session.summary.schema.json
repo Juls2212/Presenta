@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://presenta.local/protocol/v1/session.summary.schema.json",
+  "title": "session.summary (companion to watch)",
+  "allOf": [{ "$ref": "envelope.schema.json" }],
+  "properties": {
+    "type": { "const": "session.summary" },
+    "payload": { "$ref": "common.schema.json#/$defs/historyItem" }
+  }
+}
