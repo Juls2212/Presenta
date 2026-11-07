@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://presenta.local/protocol/v1/command.result.schema.json",
+  "title": "command.result (companion to watch)",
+  "allOf": [{ "$ref": "envelope.schema.json" }],
+  "properties": {
+    "type": { "const": "command.result" },
+    "payload": {
+      "type": "object",
+      "required": ["correlationId", "ok", "errorCode"],
+      "properties": {
+        "correlationId": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "ok": { "type": "boolean" },
+        "errorCode": {
+          "oneOf": [{ "$ref": "common.schema.json#/$defs/errorCode" }, { "type": "null" }]
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "ok": { "const": true } }, "required": ["ok"] },
+          "then": { "properties": { "errorCode": { "type": "null" } } },
+          "else": { "properties": { "errorCode": { "type": "string" } } }
+        }
+      ]
+    }
+  }
+}
