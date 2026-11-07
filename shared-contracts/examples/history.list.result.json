@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "type": "history.list.result",
+  "id": "s-031",
+  "payload": {
+    "items": [
+      { "name": "Presentación 31 oct", "finishedAtUtc": "2026-10-31T15:14:32.000Z", "plannedDurationMs": 900000, "actualDurationMs": 872000, "plannedSlides": 20, "registeredSlides": 20, "averageSlidesPerMinute": 1.376, "finalState": "finishedManually", "endedWithinPlannedTime": true },
+      { "name": "Ensayo", "finishedAtUtc": "2026-10-30T12:48:00.000Z", "plannedDurationMs": 600000, "actualDurationMs": 420000, "plannedSlides": 12, "registeredSlides": 9, "averageSlidesPerMinute": 1.2857, "finalState": "interruptedByDisconnection", "endedWithinPlannedTime": true }
+    ]
+  }
+}
