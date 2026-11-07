@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>Presenta.Keyboard.Windows</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Presenta.Domain\Presenta.Domain.csproj" />
+    <ProjectReference Include="..\Presenta.Targeting\Presenta.Targeting.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Presenta.Keyboard.Windows.Tests" />
+  </ItemGroup>
+
+</Project>
