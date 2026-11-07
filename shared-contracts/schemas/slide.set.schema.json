@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://presenta.local/protocol/v1/slide.set.schema.json",
+  "title": "slide.set (watch to companion)",
+  "allOf": [{ "$ref": "envelope.schema.json" }],
+  "properties": {
+    "type": { "const": "slide.set" },
+    "payload": {
+      "type": "object",
+      "required": ["slide"],
+      "properties": {
+        "slide": { "$ref": "common.schema.json#/$defs/slideNumber" }
+      }
+    }
+  }
+}
