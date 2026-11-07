@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://presenta.local/protocol/v1/envelope.schema.json",
+  "title": "Message envelope",
+  "type": "object",
+  "required": ["version", "type", "id", "payload"],
+  "properties": {
+    "version": { "type": "integer", "const": 1 },
+    "type": { "type": "string", "minLength": 1 },
+    "id": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "payload": { "type": "object" }
+  }
+}
