@@ -1,0 +1,1 @@
+{ "version": 1, "type": "hello.rejected", "id": "s-004", "payload": { "reason": "pairingLockedOut", "retryAfterMs": 60000 } }
