@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://presenta.local/protocol/v1/hello.rejected.schema.json",
+  "title": "hello.rejected (companion to watch)",
+  "allOf": [{ "$ref": "envelope.schema.json" }],
+  "properties": {
+    "type": { "const": "hello.rejected" },
+    "payload": {
+      "type": "object",
+      "required": ["reason"],
+      "properties": {
+        "reason": { "$ref": "common.schema.json#/$defs/errorCode" },
+        "retryAfterMs": { "$ref": "common.schema.json#/$defs/durationMs" }
+      }
+    }
+  }
+}
