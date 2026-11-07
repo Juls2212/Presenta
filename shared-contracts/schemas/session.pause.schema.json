@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://presenta.local/protocol/v1/session.pause.schema.json",
+  "title": "session.pause (watch to companion)",
+  "allOf": [{ "$ref": "envelope.schema.json" }],
+  "properties": {
+    "type": { "const": "session.pause" },
+    "payload": { "type": "object" }
+  }
+}
