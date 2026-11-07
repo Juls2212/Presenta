@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://presenta.local/protocol/v1/session.resume.schema.json",
+  "title": "session.resume (watch to companion)",
+  "allOf": [{ "$ref": "envelope.schema.json" }],
+  "properties": {
+    "type": { "const": "session.resume" },
+    "payload": { "type": "object" }
+  }
+}
