@@ -1,0 +1,1 @@
+{ "version": 1, "type": "session.summary", "id": "s-109", "payload": { "name": "Demo", "finishedAtUtc": "2026-10-31T15:14:32.000Z", "plannedDurationMs": 900000, "actualDurationMs": -5, "plannedSlides": 20, "registeredSlides": 20, "averageSlidesPerMinute": 1.3, "finalState": "finishedManually", "endedWithinPlannedTime": true } }
