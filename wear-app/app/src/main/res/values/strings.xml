@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    All user-visible text of the watch app. The app is Spanish only, so this is the default resource set.
+    Resource names are English. Strings marked "mockup" are verbatim from the approved screens;
+    the others are derived (see docs/ui-direction.md).
+-->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="Typos">
+    <string name="app_name">Presenta</string>
+
+    <!-- Home (mockup 01) -->
+    <string name="home_title">Presenta</string>
+    <string name="home_pill_connected">PC conectado</string>
+    <string name="home_new_presentation">Nueva presentación</string>
+    <string name="home_history">Historial</string>
+
+    <!-- Disconnected (mockup 07) and reconnecting variant -->
+    <string name="disconnected_title">Sin conexión al computador</string>
+    <string name="disconnected_hint">Verifica que la aplicación de Windows esté abierta</string>
+    <string name="disconnected_retry">Reintentar</string>
+    <string name="reconnecting_title">Reconectando…</string>
+    <string name="reconnecting_hint">Buscando el computador</string>
+
+    <!-- Setup (mockup 02) -->
+    <string name="setup_title">Nueva presentación</string>
+    <string name="setup_subtitle">Configura tu exposición</string>
+    <string name="setup_slides_unit">diapositivas</string>
+    <string name="setup_minutes_unit">min</string>
+    <string name="setup_start">Iniciar</string>
+    <string name="setup_slides_increase">Más diapositivas</string>
+    <string name="setup_slides_decrease">Menos diapositivas</string>
+    <string name="setup_minutes_increase">Más minutos</string>
+    <string name="setup_minutes_decrease">Menos minutos</string>
+    <plurals name="setup_slides_value_cd">
+        <item quantity="one">%d diapositiva</item>
+        <item quantity="other">%d diapositivas</item>
+    </plurals>
+    <plurals name="setup_minutes_value_cd">
+        <item quantity="one">%d minuto</item>
+        <item quantity="other">%d minutos</item>
+    </plurals>
+
+    <!-- Control (mockups 03 and 04) -->
+    <string name="status_connected">Conectado</string>
+    <string name="status_reconnecting">Reconectando…</string>
+    <string name="status_disconnected">Sin conexión</string>
+    <string name="control_paused">En pausa</string>
+    <string name="control_remaining">Quedan %1$s</string>
+    <string name="control_overtime">Pasaste %1$s</string>
+    <string name="control_previous">Diapositiva anterior</string>
+    <string name="control_next">Siguiente diapositiva</string>
+    <string name="control_slide_counter_cd">Diapositiva %1$d de %2$d. Toca para elegir otra</string>
+    <string name="control_clock_cd_running">Tiempo transcurrido %1$s. Mantén pulsado para pausar</string>
+    <string name="control_clock_cd_paused">Tiempo transcurrido %1$s, en pausa. Mantén pulsado para reanudar</string>
+    <string name="control_pause_action">Pausar</string>
+    <string name="control_resume_action">Reanudar</string>
+    <string name="control_choose_slide">Elegir diapositiva</string>
+
+    <!-- Pace pill / recommendations -->
+    <string name="pace_on_track">Buen ritmo</string>
+    <string name="pace_calculating">Calculando ritmo</string>
+    <string name="recommendation_speed_up_slightly">Acelera ligeramente</string>
+    <string name="recommendation_speed_up_now">Acelera ahora</string>
+    <string name="recommendation_slow_down">Reduce el ritmo</string>
+    <string name="recommendation_wrap_up">Ve cerrando</string>
+    <string name="recommendation_overtime">Termina cuanto antes</string>
+
+    <!-- Alerts -->
+    <string name="alert_dismiss">Entendido</string>
+    <string name="alert_time_up">Tiempo agotado</string>
+    <string name="alert_overtime_by">Llevas %1$s de más</string>
+    <string name="alert_behind">Vas atrasado</string>
+    <string name="alert_too_fast">Vas muy rápido</string>
+    <string name="alert_last_slide">Ya estás en la última diapositiva</string>
+    <string name="alert_cd_prefix">Alerta: %1$s. %2$s</string>
+    <plurals name="alert_minutes_left">
+        <item quantity="one">Queda %d min</item>
+        <item quantity="other">Quedan %d min</item>
+    </plurals>
+    <plurals name="alert_seconds_left">
+        <item quantity="one">Queda %d s</item>
+        <item quantity="other">Quedan %d s</item>
+    </plurals>
+    <plurals name="slides_pending">
+        <item quantity="one">Tienes %d diapositiva pendiente</item>
+        <item quantity="other">Tienes %d diapositivas pendientes</item>
+    </plurals>
+
+    <!-- Pairing (derived screen) -->
+    <string name="pairing_title">Vincular</string>
+    <string name="pairing_hint">Escribe el código del computador</string>
+    <string name="pairing_connecting">Conectando…</string>
+    <string name="pairing_next">Siguiente</string>
+    <string name="pairing_connect">Conectar</string>
+    <string name="pairing_previous_digit">Dígito anterior</string>
+    <string name="pairing_increase">Subir dígito</string>
+    <string name="pairing_decrease">Bajar dígito</string>
+    <string name="pairing_digit_cd">Dígito %1$d de 6: %2$d</string>
+    <string name="pairing_code_cd">Código: %1$s. Dígito %2$d de 6 seleccionado</string>
+
+    <!-- Slide selector -->
+    <string name="selector_title">Ir a diapositiva</string>
+    <string name="selector_done">Listo</string>
+    <string name="selector_increase">Siguiente número</string>
+    <string name="selector_decrease">Número anterior</string>
+    <string name="selector_value_cd">Diapositiva %1$d de %2$d</string>
+
+    <!-- Finish confirmation -->
+    <string name="finish_title">¿Finalizar presentación?</string>
+    <string name="finish_cancel">Cancelar</string>
+    <string name="finish_confirm">Finalizar</string>
+
+    <!-- Summary (mockup 05) and variants -->
+    <string name="summary_title">Presentación finalizada</string>
+    <string name="summary_duration_label">DURACIÓN REAL</string>
+    <plurals name="summary_slides">
+        <item quantity="one">%d diapositiva</item>
+        <item quantity="other">%d diapositivas</item>
+    </plurals>
+    <string name="summary_average_pace">Ritmo promedio %1$s diap/min</string>
+    <string name="summary_within_time">Terminaste dentro del tiempo previsto</string>
+    <string name="summary_over_time">Terminaste %1$s después del tiempo previsto</string>
+    <string name="summary_interrupted">La conexión se perdió antes de terminar</string>
+    <string name="summary_save_and_home">Guardar y volver al inicio</string>
+    <string name="summary_back">Volver</string>
+
+    <!-- History (mockups 06 and 06b) -->
+    <string name="history_title">Historial</string>
+    <string name="history_empty">Aún no hay presentaciones guardadas</string>
+    <string name="history_back">Volver</string>
+    <string name="history_loading">Cargando…</string>
+    <string name="history_pace">%1$s diap/min</string>
+    <string name="history_row_cd">%1$s, %2$s, %3$s diapositivas por minuto. Toca para ver el resumen</string>
+    <string name="day_today">Hoy</string>
+    <string name="day_yesterday">Ayer</string>
+    <string name="day_month_format">%1$02d %2$s</string>
+    <string name="session_default_name">Presentación %1$d %2$s</string>
+    <string-array name="month_short">
+        <item>ene</item>
+        <item>feb</item>
+        <item>mar</item>
+        <item>abr</item>
+        <item>may</item>
+        <item>jun</item>
+        <item>jul</item>
+        <item>ago</item>
+        <item>sep</item>
+        <item>oct</item>
+        <item>nov</item>
+        <item>dic</item>
+    </string-array>
+
+    <!-- Errors (one per protocol error code) -->
+    <string name="error_invalid_pairing_code">Código incorrecto</string>
+    <string name="error_pairing_locked_out">Demasiados intentos. Espera un momento</string>
+    <string name="error_not_paired">Primero vincula el reloj con el computador</string>
+    <string name="error_unsupported_version">Actualiza la aplicación del reloj o la de Windows</string>
+    <string name="error_invalid_message">No se pudo enviar el comando</string>
+    <string name="error_invalid_state">Ahora no se puede hacer eso</string>
+    <string name="error_slide_out_of_range">Esa diapositiva no existe</string>
+    <string name="error_no_active_session">No hay una presentación activa</string>
+    <string name="error_target_window_unavailable">Elige la ventana de la presentación en el computador</string>
+    <string name="error_key_delivery_failed">No se pudo enviar el comando a la presentación</string>
+    <string name="error_internal">Algo falló en el computador</string>
+</resources>
