@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Presenta.DevHost</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Deliberately no reference to Presenta.Keyboard.Windows: this host can never press a real key. -->
+    <ProjectReference Include="..\..\src\Presenta.Domain\Presenta.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Presenta.Persistence\Presenta.Persistence.csproj" />
+    <ProjectReference Include="..\..\src\Presenta.Server\Presenta.Server.csproj" />
+  </ItemGroup>
+
+</Project>
