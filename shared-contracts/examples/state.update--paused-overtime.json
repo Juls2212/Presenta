@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "type": "state.update",
+  "id": "s-013",
+  "payload": {
+    "serverTimeUtc": "2026-10-31T15:20:00.000Z",
+    "session": {
+      "state": "paused",
+      "name": "Demo",
+      "currentSlide": 18,
+      "totalSlides": 20,
+      "plannedDurationMs": 900000,
+      "elapsedMs": 960000,
+      "remainingMs": -60000,
+      "running": false,
+      "progressRatio": 0.9,
+      "paceStatus": "onTrack",
+      "slidesRemaining": 2,
+      "averageSlidesPerMinute": 1.125,
+      "finalState": null,
+      "activeAlert": null,
+      "recommendation": { "code": "overtime", "slidesRemaining": 2, "timeRemainingMs": -60000, "freeText": null }
+    }
+  }
+}
