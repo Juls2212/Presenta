@@ -9,6 +9,12 @@ import com.presenta.wear.data.fake.FakePresentaRepository
 import com.presenta.wear.data.remote.DataStorePairingStore
 import com.presenta.wear.data.remote.OkHttpSocketFactory
 import com.presenta.wear.data.remote.RemotePresentaRepository
+import com.presenta.wear.diagnostics.TimingLogs
+import com.presenta.wear.haptics.AndroidHapticsPlayer
+import com.presenta.wear.haptics.HapticsCoordinator
+import com.presenta.wear.haptics.LogcatHapticLog
+import com.presenta.wear.haptics.NoHapticLog
+import com.presenta.wear.haptics.NoHapticsPlayer
 import java.time.Clock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -24,6 +30,8 @@ class AppContainer(
     val wallClock: Clock,
     /** Display refresh signal for the live clock on Control. Tests pass a signal they control. */
     val displayTicks: Flow<Unit> = defaultDisplayTicks(),
+    /** Decides when the watch vibrates. Tests and previews keep the silent default. */
+    val haptics: HapticsCoordinator = HapticsCoordinator(NoHapticsPlayer),
 ) {
     companion object {
         fun defaultDisplayTicks(): Flow<Unit> = flow {
@@ -52,8 +60,14 @@ class PresentaApplication : Application() {
                 sockets = OkHttpSocketFactory(),
                 store = DataStorePairingStore(presentaDataStore, ServerAddressOverride.read(filesDir)),
                 clock = SystemMonotonicClock,
+                timing = TimingLogs.forBuild(BuildConfig.DEBUG),
             )
         }
-        AppContainer(repository = repository, monotonicClock = SystemMonotonicClock, wallClock = wall)
+        val haptics = HapticsCoordinator(
+            player = AndroidHapticsPlayer(this),
+            log = if (BuildConfig.DEBUG) LogcatHapticLog() else NoHapticLog,
+        )
+        haptics.start(CoroutineScope(SupervisorJob() + Dispatchers.Default), repository.session)
+        AppContainer(repository = repository, monotonicClock = SystemMonotonicClock, wallClock = wall, haptics = haptics)
     }
 }
