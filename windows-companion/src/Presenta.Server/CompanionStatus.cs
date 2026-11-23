@@ -1,4 +1,5 @@
 using Presenta.Domain;
+using Presenta.Domain.Keyboard;
 
 namespace Presenta.Server;
 
@@ -29,10 +30,14 @@ public enum ActivityKind
     AlertRaised,
     KeyFailed,
     StartRejectedNoTarget,
+
+    /// <summary>At startup, a session left over from a crash was saved to the history as interrupted.</summary>
+    SessionRecovered,
 }
 
 /// <summary>One entry of the activity list.</summary>
 /// <param name="At">UTC time of the event.</param>
 /// <param name="Kind">What happened.</param>
 /// <param name="Slide">The slide counter after the event, when relevant.</param>
-public sealed record CompanionActivity(DateTimeOffset At, ActivityKind Kind, int? Slide = null);
+/// <param name="KeyResult">For <see cref="ActivityKind.KeyFailed"/>: why the key was not sent.</param>
+public sealed record CompanionActivity(DateTimeOffset At, ActivityKind Kind, int? Slide = null, KeyDeliveryResult? KeyResult = null);
