@@ -19,7 +19,7 @@ internal static class SampleMessages
         SlidesRemaining: 13,
         AverageSlidesPerMinute: 0.82,
         FinalState: null,
-        ActiveAlert: new AlertPayload(AlertKind.BehindSchedule, AlertSeverity.Warning, 480_000, 420_000, 13, -3),
+        ActiveAlert: new AlertPayload(AlertKind.BehindSchedule, AlertSeverity.Warning, 480_000, 420_000, 13, -3, 2),
         Recommendation: new RecommendationPayload(RecommendationCode.SpeedUpSlightly, 13, 388_000, null));
 
     public static readonly HistoryItemPayload HistoryItem = new(
