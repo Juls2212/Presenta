@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -298,15 +299,28 @@ fun StatusPill(
     icon: IconKind? = null,
     textSize: TextUnit = 12.sp,
     height: Dp = 24.dp,
+    /** With more than one line the pill grows (it is then at least [height] tall) and long text ends in an ellipsis. */
+    maxLines: Int = 1,
+    /** When given, a screen reader reads this instead of the pieces of the pill (the same text as shown). */
+    contentDescription: String? = null,
+    /** Vertical padding used only when the pill may take several lines. */
+    multilinePadding: Dp = 3.dp,
 ) {
     val shape = RoundedCornerShape(50)
+    val multiline = maxLines > 1
+    val semanticsModifier = if (contentDescription != null) {
+        Modifier.semantics(mergeDescendants = true) { this.contentDescription = contentDescription }
+    } else {
+        Modifier
+    }
     Row(
         modifier = modifier
-            .height(height)
+            .then(if (multiline) Modifier.heightIn(min = height) else Modifier.height(height))
+            .then(semanticsModifier)
             .clip(shape)
             .background(accent.copy(alpha = 0.14f))
             .border(1.dp, accent.copy(alpha = 0.55f), shape)
-            .padding(horizontal = 10.dp),
+            .padding(horizontal = 10.dp, vertical = if (multiline) multilinePadding else 0.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -314,7 +328,13 @@ fun StatusPill(
             PresentaIcon(icon, accent, size = 13.dp)
             Spacer(Modifier.width(4.dp))
         }
-        PresentaText(text, PresentaText.medium(textSize), accent, maxLines = 1)
+        PresentaText(
+            text,
+            PresentaText.medium(textSize),
+            accent,
+            modifier = if (multiline) Modifier.weight(1f, fill = false) else Modifier,
+            maxLines = maxLines,
+        )
     }
 }
 
