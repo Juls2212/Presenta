@@ -22,6 +22,7 @@ internal sealed class AlertEngine
     private PaceStatus? _lastObservedPace;
     private PaceStatus? _lastPaceAlertStatus;
     private TimeSpan? _lastPaceAlertAt;
+    private int _sequence;
 
     public Alert? Active { get; private set; }
 
@@ -112,7 +113,8 @@ internal sealed class AlertEngine
             ToMs(elapsed),
             ToMs(remaining),
             slidesRemaining,
-            deviation);
+            deviation,
+            ++_sequence);
     }
 
     internal static long ToMs(TimeSpan value) => (long)Math.Floor(value.TotalMilliseconds);
