@@ -18,6 +18,10 @@ public sealed class UiLabels
 
     public string PairingRegenerate => UiText.Get("Pairing_Regenerate");
 
+    public string RememberCodeToggle => UiText.Get("Pairing_Remember");
+
+    public string RememberCodeHint => UiText.Get("Pairing_Remember_Hint");
+
     public string ConnectionTitle => UiText.Get("Connection_Title");
 
     public string LocalNetworkToggle => UiText.Get("Toggle_LocalNetwork");
@@ -48,6 +52,8 @@ public sealed class UiLabels
 
     public string TargetVerify => UiText.Get("Target_Verify");
 
+    public string TargetDiagnostic => UiText.Get("Target_Diagnostic");
+
     public string TargetEmpty => UiText.Get("Target_Empty");
 
     public string TargetKeysOff => UiText.Get("Target_KeysOff");
@@ -72,6 +78,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private string _pairingCode;
     private bool _allowLocalNetwork;
     private bool _sendKeys;
+    private bool _rememberCode;
     private bool _watchConnected;
     private bool _hasSession;
     private string _sessionName = string.Empty;
@@ -86,9 +93,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Func<IReadOnlyList<string>>? lanAddresses = null,
         int maxEvents = DefaultMaxEvents,
         TimeZoneInfo? timeZone = null,
-        TargetSelectionViewModel? target = null)
+        TargetSelectionViewModel? target = null,
+        AiSectionViewModel? ai = null)
     {
         Target = target;
+        Ai = ai;
         _host = host;
         _ui = dispatcher;
         _lanAddresses = lanAddresses ?? LocalNetwork.GetLanAddresses;
@@ -97,6 +106,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _pairingCode = host.Service.PairingCode;
         _allowLocalNetwork = host.AllowLocalNetwork;
         _sendKeys = host.Service.SendKeys;
+        _rememberCode = host.Service.RememberPairingCode;
         if (target is not null)
         {
             target.KeysEnabled = _sendKeys;
@@ -117,6 +127,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public TargetSelectionViewModel? Target { get; }
 
     public bool HasTarget => Target is not null;
+
+    /// <summary>The "Recomendaciones con IA" section, or null when this window has none.</summary>
+    public AiSectionViewModel? Ai { get; }
+
+    public bool HasAi => Ai is not null;
 
     public ObservableCollection<string> Addresses { get; } = new();
 
@@ -181,6 +196,19 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             if (SetProperty(ref _allowLocalNetwork, value))
             {
                 LastOperation = ApplyLocalNetworkAsync(value);
+            }
+        }
+    }
+
+    /// <summary>"Remember the pairing code". Off by default; turning it on stores the current code (ADR-69).</summary>
+    public bool RememberPairingCode
+    {
+        get => _rememberCode;
+        set
+        {
+            if (SetProperty(ref _rememberCode, value))
+            {
+                _host.Service.SetRememberPairingCode(value);
             }
         }
     }
@@ -289,8 +317,35 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         RefreshAddresses();
     }
 
+    /// <summary>True while a session is running or paused: closing the window then needs the user's confirmation.</summary>
+    public bool NeedsCloseConfirmation =>
+        _host.Service.Status.Session is { State: Presenta.Domain.SessionState.Running or Presenta.Domain.SessionState.Paused };
+
+    /// <summary>
+    /// Handles a request to close the window. With no running or paused session it returns true at once and nothing is
+    /// asked. Otherwise <paramref name="confirmCloseAndSave"/> receives the Spanish title and message; when it returns
+    /// false the window stays open and nothing changes. When it returns true the session is ended as interrupted by
+    /// disconnection (exactly one history record), the server is stopped cleanly, and true is returned (ADR-64).
+    /// </summary>
+    public async Task<bool> RequestCloseAsync(Func<string, string, bool> confirmCloseAndSave)
+    {
+        if (NeedsCloseConfirmation)
+        {
+            if (!confirmCloseAndSave(UiText.Get("Close_Title"), UiText.Get("Close_Message")))
+            {
+                return false;
+            }
+
+            await _host.Service.InterruptActiveSessionAsync();
+        }
+
+        await StopAsync();
+        return true;
+    }
+
     public void Dispose()
     {
+        Ai?.Dispose();
         _host.Service.StatusChanged -= OnStatusChanged;
         _host.Service.ActivityOccurred -= OnActivity;
     }
@@ -382,6 +437,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             ActivityKind.SlideCounterChanged => UiText.Format("Event_SlideCounterChanged", activity.Slide ?? 0),
             ActivityKind.SlideSet => UiText.Format("Event_SlideSet", activity.Slide ?? 0),
+            ActivityKind.KeyFailed when activity.KeyResult is { } result =>
+                UiText.Format("Event_KeyFailedReason", UiText.Get("Event_KeyReason_" + result)),
             _ => UiText.Get("Event_" + activity.Kind),
         };
         var time = TimeZoneInfo.ConvertTime(activity.At, _zone).ToString("HH:mm:ss", CultureInfo.InvariantCulture);
