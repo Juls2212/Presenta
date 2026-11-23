@@ -41,12 +41,16 @@ data class Alert(
     val remainingMs: Long,
     val slidesRemaining: Int,
     val slideDeviation: Int,
+    /** Identity of this alert instance within the session (1, 2, 3...). It never changes while the alert is shown. */
+    val sequence: Int = 0,
 )
 
 data class Recommendation(
     val code: RecommendationCode,
     val slidesRemaining: Int,
     val timeRemainingMs: Long,
+    /** Optional short tip worded by the companion's AI (ADR-78). Display-only; null means "use the wording of [code]". */
+    val freeText: String? = null,
 )
 
 /** Snapshot of one session as the companion reports it. [elapsedMs] is the value at the time of the snapshot. */
