@@ -21,6 +21,7 @@ import com.presenta.wear.AppContainer
 import com.presenta.wear.format.HistoryTimeFormatter
 import com.presenta.wear.format.PaceFormat
 import com.presenta.wear.format.StringMapper
+import com.presenta.wear.ui.components.KeepScreenOn
 import com.presenta.wear.ui.components.ScreenFrame
 import com.presenta.wear.ui.screens.control.ControlActions
 import com.presenta.wear.ui.screens.control.ControlScreen
@@ -71,10 +72,14 @@ private const val SESSION_GONE_DELAY_MS = 600L
 fun PresentaApp(container: AppContainer, navController: NavHostController = rememberSwipeDismissableNavController()) {
     val appViewModel: AppViewModel = viewModel(factory = viewModelFactory { initializer { AppViewModel(container.repository) } })
     val homeViewModel: HomeViewModel = viewModel(factory = viewModelFactory { initializer { HomeViewModel(container.repository) } })
-    val setupViewModel: SetupViewModel = viewModel(factory = viewModelFactory { initializer { SetupViewModel(container.repository) } })
+    val setupViewModel: SetupViewModel = viewModel(
+        factory = viewModelFactory { initializer { SetupViewModel(container.repository, container.haptics::commandFailed) } },
+    )
     val controlViewModel: ControlViewModel = viewModel(
         factory = viewModelFactory {
-            initializer { ControlViewModel(container.repository, container.monotonicClock, container.displayTicks) }
+            initializer {
+                ControlViewModel(container.repository, container.monotonicClock, container.displayTicks, container.haptics::commandFailed)
+            }
         },
     )
     val pairingViewModel: PairingViewModel = viewModel(factory = viewModelFactory { initializer { PairingViewModel(container.repository) } })
@@ -86,7 +91,11 @@ fun PresentaApp(container: AppContainer, navController: NavHostController = reme
     val sessionActive by appViewModel.sessionActive.collectAsState()
     val summary by appViewModel.lastSummary.collectAsState()
     val pairingState by appViewModel.pairing.collectAsState()
+    val sessionLive by appViewModel.sessionLive.collectAsState()
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+
+    // The screen stays on only while a session is running or paused and the Control screen is showing.
+    KeepScreenOn(enabled = sessionLive && currentRoute == Routes.CONTROL)
 
     LaunchedEffect(sessionActive) {
         if (sessionActive && navController.currentDestination?.route != Routes.CONTROL) {
