@@ -20,6 +20,12 @@ public static class UiText
         string.Format(CultureInfo.InvariantCulture, Get(key), arguments);
 }
 
+/// <summary>Puts text on the system clipboard. The WPF app implements it; tests record the text.</summary>
+public interface IClipboard
+{
+    void SetText(string text);
+}
+
 /// <summary>Runs an action on the UI thread. The WPF app wraps its dispatcher; tests run the action immediately.</summary>
 public interface IUiDispatcher
 {
