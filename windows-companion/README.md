@@ -10,6 +10,7 @@ Windows backend and desktop window for Presenta (C#, .NET 10). It owns the WebSo
 | `src/Presenta.Protocol` | Wire models and strict JSON serialization for protocol v1. |
 | `src/Presenta.Persistence` | History in SQLite through EF Core. |
 | `src/Presenta.Server` | `CompanionService` (pairing, one watch, one session, keys, history, disconnection policy) and `CompanionHost` (Kestrel WebSocket endpoint). |
+| `src/Presenta.Ai` | Optional AI wording of the recommendation: the HTTP client for chat-completions providers, the prompt (aggregate numbers and codes only), the answer sanitizer and the configuration from environment variables. No references, no packages. |
 | `src/Presenta.Targeting` | The presentation window: candidate list, saved identity, resolution, activation and `WindowSlideKeyboard` (the `ISlideKeyboard` the app uses). Portable; no Win32. |
 | `src/Presenta.Keyboard.Windows` | The only Win32 code: `Win32WindowSystem` (enumerate, activate, confirm foreground) and the `SendInput` Right and Left arrows. |
 | `src/Presenta.Companion.ViewModels` | View models and the Spanish `UiStrings.resx`. No WPF types. |
@@ -39,6 +40,8 @@ or open `Presenta.Companion.sln` in Visual Studio and start `Presenta.Companion.
 | `--port 8765` | TCP port (default 8765). |
 | `--database C:\path\history.db` | History file (default `%LOCALAPPDATA%\Presenta\history.db`). |
 | `--target-settings C:\path\target.json` | File that remembers the chosen presentation window (default `%LOCALAPPDATA%\Presenta\target.json`). |
+| `--settings C:\path\settings.json` | File of the remembered pairing code (default `%LOCALAPPDATA%\Presenta\settings.json`). |
+| `--active-session C:\path\active-session.json` | File of the running session, for crash recovery (default `%LOCALAPPDATA%\Presenta\active-session.json`). |
 
 What to expect: a dark window titled "Presenta" opens and the server starts by itself. It shows the server state, a six-digit pairing code in large type (with a button to generate a new one), the port and the addresses a watch can use, the "Ventana de la presentación" section (see below), two switches, the watch status (waiting or connected), the active presentation (name, slide, remaining time), and the latest events. The window text is Spanish.
 
@@ -46,15 +49,53 @@ What to expect: a dark window titled "Presenta" opens and the server starts by i
 
 The section "Ventana de la presentación" lists the visible windows (title and program), with a PowerPoint slide-show window suggested first. Choose one, then press "Verificar": the companion brings that window to the front and tells you whether it arrived. "Verificar" never presses a key. "Actualizar lista" reads the open windows again. The status line says whether the window is ready, minimized (it will be restored), not found, ambiguous (several identical windows), or running as administrator (Windows blocks keys into it unless Presenta also runs as administrator). The choice is remembered in `%LOCALAPPDATA%\Presenta\target.json` by program, window class, and part of the title, so it survives restarting the companion as long as that window exists again.
 
+Automatic choice (Phase 8): when nothing is chosen (or the chosen window is gone) and exactly one PowerPoint slide show is open, it is chosen by itself and the status line says so; with several, nothing is chosen and the status asks you to pick one. Choosing never verifies and never presses a key. If the chosen window belongs to PowerPoint but is not the slide show, a warning line appears next to the status.
+
 Known limits: Windows may refuse to bring a window forward in rare cases (then nothing is sent and an error appears); focus is not given back to the previous window; programs that run exclusive full screen, several monitors, and browsers (Google Slides, Canva: identified by title only, and the title changes with the tab) were not exercised.
+
+## Enable the AI (optional)
+
+The companion can ask an external language model to word a very short Spanish tip, which the watch shows in the alert state instead of the usual wording. It is **off by default**, and the product works the same without it. The AI never decides the pace, the alerts or the timing: those stay deterministic, and any failure (no variables, a wrong key, no network, a slow or odd answer) simply shows the usual wording.
+
+1. **Set three environment variables in the PowerShell window where you start the companion.** They live only in that window and are gone when it closes; nothing is written to a file. Use your own values in place of the placeholders:
+
+```powershell
+$env:PRESENTA_AI_BASE_URL = "https://<your-provider-host>/v1"   # a provider with POST {base}/chat/completions; https is required (http only for this computer)
+$env:PRESENTA_AI_MODEL    = "<model-name>"
+$env:PRESENTA_AI_API_KEY  = "<your-key>"
+dotnet run --project src/Presenta.Companion.App
+```
+
+2. **Turn the switch on.** In the window, card "Recomendaciones con IA", switch "Usar IA para redactar las recomendaciones". The status line tells you where you are: "Apagada: se usan las frases de siempre." (configured, switch off), "Lista: se pedirá un texto cuando salte una alerta." (on), "Pidiendo un texto a la IA…" while a request is open, then "Último texto: ..." with the sentence. If the variables are missing or wrong the switch is disabled and the line says why ("No disponible: falta configurar la IA en este computador. Los pasos están en el README de windows-companion.", or the address is not valid, or it does not start with https).
+3. **To turn it off:** switch it off, or close the window. To remove the variables from the PowerShell window: `Remove-Item Env:PRESENTA_AI_API_KEY, Env:PRESENTA_AI_BASE_URL, Env:PRESENTA_AI_MODEL`.
+
+**What is sent.** One request when an alert appears or changes (at most one per 15 seconds, 30 per presentation), with a fixed instruction and one line of codes and rounded numbers, for example `Situation: recommendation=SpeedUpSlightly; alert=TimeRunningOut; pace=Behind; slidesRemaining=9; minutesRemaining=5; plannedSlides=20; plannedMinutes=15. Write the tip.` Never the presentation name, window titles, file names or the computer's name. The key goes only in the Authorization header of the request, never in a file, a log, the window or the diagnostic report.
+
+**Check it yourself (optional).** Point the address at a listener on this computer and read what arrives (http is allowed to loopback only). In a second PowerShell window:
+
+```powershell
+$listener = [System.Net.HttpListener]::new(); $listener.Prefixes.Add("http://127.0.0.1:9099/"); $listener.Start()
+$context = $listener.GetContext(); (New-Object System.IO.StreamReader($context.Request.InputStream)).ReadToEnd()
+$context.Response.StatusCode = 500; $context.Response.Close(); $listener.Stop()
+```
+
+and start the companion with `PRESENTA_AI_BASE_URL = "http://127.0.0.1:9099/v1"` (any model name and key).
+
+**Offline, wrong key, slow provider.** The status line shows "En pausa por errores: se usan las frases de siempre." after three failures in a row (for a minute, then one trial request) or "La IA rechazó la clave: se usan las frases de siempre." when the provider refuses the key; the watch keeps showing the usual wording and the presentation is not affected. Turning the switch off and on tries again at once.
+
+Not tested against a real provider: the automated tests use a local test server and a fake client, never the network (see `../docs/testing-strategy.md`).
 
 ## Developer host (no keys, no window)
 
 ```
-dotnet run --project tools/Presenta.DevHost -- --code 123456 [--port 0] [--database path] [--grace-seconds 300] [--heartbeat-seconds 15]
+dotnet run --project tools/Presenta.DevHost -- --code 123456 [--port 0] [--database path] [--grace-seconds 300] [--heartbeat-seconds 15] [--time-scale 1]
 ```
 
 It prints `LISTENING port=N`, prints `KEY Right` or `KEY Left` instead of pressing keys, accepts `rebind` (restart the listener) and `quit` on standard input, and shuts down cleanly. `--code` fixes the pairing code and exists for tests only. The watch's `gradlew :app:crossStackTest` uses it.
+
+`--fake-ai` turns the optional AI wording on with a canned client that never touches the network: during an alert the recommendation carries a text such as `Fake AI tip: SpeedUpNow`, so the watch's path can be tested without a provider (`gradlew :app:crossStackTest`).
+
+`--time-scale N` (1 to 1000) makes the host's clock run N times faster, so a 15-minute session lasts 15 minutes divided by N and every alert shows up within seconds (the grace period and heartbeat timeout are given in real seconds and scaled to match). It exists only in this tool; the shipped companion always uses the system clock (ADR-63).
 
 ## Ports and addresses
 
@@ -80,8 +121,14 @@ Remove it later with `Remove-NetFirewallRule -DisplayName "Presenta"`. Nothing i
 
 - **Pairing:** the first message must be `hello` with the code. Five wrong codes from one address lock it out for 30 seconds.
 - **Keys:** Next presses the Right arrow and Previous the Left arrow, only when the slide counter would really change; `slide.set` never presses a key. A switch in the window turns key sending off.
+- **When a key cannot be sent (Phase 7b-1):** the activity list says why ("No se pudo enviar la tecla: " plus the reason). "Copiar diagnóstico" in the window section runs the same activation as a real send without any key and copies a plain-text report to the clipboard (no pairing code; window titles may contain file names, so read it before sharing). The chosen window counts as in front when it, or a window of the same program that it owns, is the foreground window (ADR-66).
+- **Crash recovery (Phase 8):** a running or paused session is written to `active-session.json` before each answer to the watch, after changes and at least every 5 seconds (atomic replace). At the next start, before listening, an orphaned file is saved to the history exactly once as interrupted (the duration is the elapsed time of the last write), the file is removed, the activity list says "Se guardó una presentación interrumpida", and the session is not resumed. A corrupt file is discarded; a crash during recovery cannot duplicate the record (ADR-67).
+- **Remembered pairing code (Phase 8):** the switch "Recordar código de vinculación" is off by default. On, the code is kept in `settings.json` so the watch stays paired across restarts; "Generar código nuevo" replaces it; off removes it. The code is never logged (ADR-69).
+- **Single instance (Phase 8):** a second `Presenta.exe` shows "Presenta ya está abierto. Búscalo en la barra de tareas." and exits without opening a window or a server (ADR-70).
 - **Where keys go (Phase 5.1):** to the window chosen in "Ventana de la presentación", never to whichever window happens to be in front. Before each key the companion restores the window if it is minimized, brings it to the front, confirms it is in front, and only then presses the key; otherwise it presses nothing and the watch shows an error. The key is delivered first and the counter moves only afterwards, so the watch and the slideshow stay in step. With keys on, `session.start` is refused until a usable window is chosen.
 - **Session:** it keeps running if the watch disconnects. A watch that reconnects gets the current state at once. After 5 minutes without a watch the session ends as interrupted and is saved. Ending a session always saves one history record automatically.
+- **Closing the window (Phase 6):** with a session running or paused, the window asks in Spanish whether to close and save. Yes ends the session as interrupted, saves exactly one history record, tells the watch, stops the server cleanly, and exits; No keeps everything. With no session it closes without asking (ADR-64).
+- **Alert identity (Phase 6):** each alert in `state.update` carries a `sequence` number (1, 2, 3 within a session) so the watch can vibrate once per alert.
 - **One watch at a time:** a second valid connection replaces the first.
 - **Heartbeat:** the watch should send `ping` about every 2 seconds; a connection silent for 15 seconds is closed. The companion sends `state.update` at least every 5 seconds while a watch is connected.
 
@@ -93,6 +140,6 @@ Remove it later with `Remove-NetFirewallRule -DisplayName "Presenta"`. Nothing i
 
 ## Not verified automatically
 
-- Real key injection into PowerPoint, Android Studio in the foreground, and the 2-second latency: by hand (see `../docs/manual-test-guide.md`, section E). The opt-in `Presenta.Desktop.Tests` prove delivery with small test windows only.
+- Real key injection into PowerPoint, Android Studio in the foreground, and the 2-second latency: by hand (see `../docs/validation/validation-guide.md`, rows 30 to 42 and the timing section). The opt-in `Presenta.Desktop.Tests` prove delivery with small test windows only.
 - How the window looks. It was built and started, but not seen.
 - A physical watch, the emulator, and the Windows Firewall.
