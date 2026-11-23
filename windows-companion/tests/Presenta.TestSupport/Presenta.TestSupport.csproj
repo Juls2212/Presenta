@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Presenta.Ai\Presenta.Ai.csproj" />
     <ProjectReference Include="..\..\src\Presenta.Domain\Presenta.Domain.csproj" />
     <ProjectReference Include="..\..\src\Presenta.Targeting\Presenta.Targeting.csproj" />
   </ItemGroup>
