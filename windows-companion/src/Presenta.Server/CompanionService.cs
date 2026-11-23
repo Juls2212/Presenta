@@ -39,11 +39,17 @@ public sealed class CompanionService : IAsyncDisposable
     private readonly HashSet<WatchConnection> _connections = new();
     private readonly ITimer _timer;
     private readonly int _refreshEveryTicks;
+    private readonly int _saveEveryTicks;
+    private readonly IActiveSessionStore _activeSessions;
+    private readonly ICompanionSettingsStore _settings;
+    private readonly AiRecommendationEnricher? _ai;
 
     private PresentationSession? _session;
     private WatchConnection? _client;
     private long? _clientLostAt;
     private int _ticksSinceRefresh;
+    private int _ticksSinceSave;
+    private bool _rememberCode;
     private long _idCounter;
     private bool _disposed;
     private volatile bool _sendKeys;
@@ -53,16 +59,38 @@ public sealed class CompanionService : IAsyncDisposable
         ISlideKeyboard keyboard,
         IHistoryStore history,
         TimeProvider? time = null,
-        ILoggerFactory? loggerFactory = null)
+        ILoggerFactory? loggerFactory = null,
+        IActiveSessionStore? activeSessions = null,
+        ICompanionSettingsStore? settings = null,
+        AiRecommendationEnricher? ai = null)
     {
         _options = options;
         _keyboard = keyboard;
         _history = history;
         _time = time ?? TimeProvider.System;
         _log = (loggerFactory ?? NullLoggerFactory.Instance).CreateLogger<CompanionService>();
-        _pairing = new PairingGate(options.PairingCode, options.LockoutThreshold, options.LockoutDuration);
+        _activeSessions = activeSessions ?? NullActiveSessionStore.Instance;
+        _settings = settings ?? NullCompanionSettingsStore.Instance;
+        _ai = ai;
+        if (_ai is not null)
+        {
+            _ai.TextReady += OnAiTextReady;
+        }
+
+        // A fixed code from the options (tests) wins; otherwise the stored code, when the user asked to remember it.
+        var stored = _settings.Load();
+        _rememberCode = stored.RememberPairingCode;
+        var initialCode = options.PairingCode
+            ?? (_rememberCode && CompanionSettings.IsValidCode(stored.PairingCode) ? stored.PairingCode : null);
+        _pairing = new PairingGate(initialCode, options.LockoutThreshold, options.LockoutDuration);
+        if (_rememberCode && !string.Equals(stored.PairingCode, _pairing.Code, StringComparison.Ordinal))
+        {
+            SaveSettings();
+        }
+
         _sendKeys = options.SendKeys;
         _refreshEveryTicks = Math.Max(1, (int)Math.Round(options.RefreshInterval / options.TickInterval));
+        _saveEveryTicks = Math.Max(1, (int)Math.Round(options.ActiveSessionSaveInterval / options.TickInterval));
         Status = BuildStatus();
         _timer = _time.CreateTimer(_ => _ = RunTickAsync(), null, options.TickInterval, options.TickInterval);
     }
@@ -76,17 +104,49 @@ public sealed class CompanionService : IAsyncDisposable
     /// <summary>Raised for each noteworthy event, for the activity list.</summary>
     public event EventHandler<CompanionActivity>? ActivityOccurred;
 
+    /// <summary>The optional AI that words the recommendation (ADR-75), or null when this service has none.</summary>
+    public AiRecommendationEnricher? Ai => _ai;
+
     /// <summary>The current pairing code. Show it to the user; never log it.</summary>
     public string PairingCode => _pairing.Code;
 
     /// <summary>Whether Next and Previous press keys. When off, commands still move the counter.</summary>
     public bool SendKeys => _sendKeys;
 
-    /// <summary>Creates a new pairing code. A watch that is already paired stays connected.</summary>
+    /// <summary>Whether the pairing code is kept across restarts (ADR-69).</summary>
+    public bool RememberPairingCode => _rememberCode;
+
+    /// <summary>
+    /// Creates a new pairing code. A watch that is already paired stays connected. When the code is remembered, the new
+    /// one replaces the stored one.
+    /// </summary>
     public void RegeneratePairingCode()
     {
         _pairing.Regenerate();
-        WithGate(Publish);
+        WithGate(() =>
+        {
+            SaveSettings();
+            Publish();
+        });
+    }
+
+    /// <summary>Turns "remember the pairing code" on or off. Off removes the stored code from the file.</summary>
+    public void SetRememberPairingCode(bool remember)
+    {
+        WithGate(() =>
+        {
+            _rememberCode = remember;
+            SaveSettings();
+        });
+    }
+
+    private void SaveSettings()
+    {
+        // Only the outcome is logged, never the code.
+        if (!_settings.Save(new CompanionSettings(_rememberCode, _rememberCode ? _pairing.Code : null)))
+        {
+            _log.LogWarning("The settings file could not be written.");
+        }
     }
 
     public void SetSendKeys(bool enabled)
@@ -173,6 +233,147 @@ public sealed class CompanionService : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Ends a running or paused session as interrupted by disconnection and saves exactly one history record, as when
+    /// the watch does not come back. Used when the companion is closed by hand during a session (ADR-64). Returns false
+    /// (and saves nothing) when there is no running or paused session, so calling it twice never duplicates a record.
+    /// </summary>
+    public async Task<bool> InterruptActiveSessionAsync()
+    {
+        await _gate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+        try
+        {
+            if (_disposed || _session is not { State: Domain.SessionState.Running or Domain.SessionState.Paused } session)
+            {
+                return false;
+            }
+
+            if (!session.MarkInterrupted().Succeeded)
+            {
+                return false;
+            }
+
+            await EndSessionAsync(notifyWatch: true).ConfigureAwait(false);
+            BroadcastState();
+            return true;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Looks for a session that was running or paused when the companion last stopped without ending it (a crash or a
+    /// power cut) and saves it to the history as interrupted by disconnection, exactly once (ADR-67). The session is not
+    /// resumed. A corrupt file is discarded. When saving fails the file is kept and the next start tries again; when the
+    /// file cannot be removed after saving, the next start finds the record already in the history and only removes the
+    /// file. Returns true when a record was recovered.
+    /// </summary>
+    public async Task<bool> RecoverInterruptedSessionAsync()
+    {
+        await _gate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+        try
+        {
+            if (_disposed || _session is not null)
+            {
+                return false;
+            }
+
+            var load = _activeSessions.Load();
+            if (load.Status == ActiveSessionLoadStatus.None)
+            {
+                return false;
+            }
+
+            if (load.Status == ActiveSessionLoadStatus.Invalid || load.Record is null)
+            {
+                _log.LogWarning("The saved active session was unreadable and was discarded.");
+                _activeSessions.Delete();
+                return false;
+            }
+
+            var summary = ActiveSessionRecovery.BuildInterruptedSummary(load.Record, _options.SessionOptions);
+            try
+            {
+                if (!await IsAlreadyInHistoryAsync(summary).ConfigureAwait(false))
+                {
+                    await _history.SaveAsync(summary).ConfigureAwait(false);
+                }
+            }
+            catch (Exception ex)
+            {
+                _log.LogError(ex, "Saving the recovered session failed; it will be tried again at the next start.");
+                return false;
+            }
+
+            if (!_activeSessions.Delete())
+            {
+                _log.LogWarning("The saved active session could not be removed.");
+            }
+
+            Activity(ActivityKind.SessionRecovered);
+            return true;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    // The summary built from one record is always the same, so an equal entry means the record was already saved.
+    private async Task<bool> IsAlreadyInHistoryAsync(SessionSummary summary)
+    {
+        try
+        {
+            var recent = await _history.ListNewestFirstAsync(100).ConfigureAwait(false);
+            return recent.Any(item =>
+                item.FinalState == Domain.FinalState.InterruptedByDisconnection
+                && item.Name == summary.Name
+                && item.FinishedAtUtc.ToUnixTimeMilliseconds() == summary.FinishedAtUtc.ToUnixTimeMilliseconds()
+                && item.ActualDurationMs == summary.ActualDurationMs
+                && item.PlannedDurationMs == summary.PlannedDurationMs
+                && item.PlannedSlides == summary.PlannedSlides
+                && item.RegisteredSlides == summary.RegisteredSlides);
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Reading the history to look for a duplicate failed.");
+            return false;
+        }
+    }
+
+    // Writes the running or paused session to disk. Call with the gate held. Never throws: a failed write only logs.
+    private void PersistActiveSession()
+    {
+        _ticksSinceSave = 0;
+        if (_session is not { State: Domain.SessionState.Running or Domain.SessionState.Paused } session)
+        {
+            return;
+        }
+
+        try
+        {
+            var snapshot = session.GetSnapshot();
+            var saved = _activeSessions.Save(new ActiveSessionRecord(
+                snapshot.Name,
+                snapshot.TotalSlides,
+                snapshot.PlannedDurationMs,
+                snapshot.CurrentSlide,
+                snapshot.ElapsedMs,
+                snapshot.State == Domain.SessionState.Paused,
+                _time.GetUtcNow()));
+            if (!saved)
+            {
+                _log.LogWarning("The active session could not be saved.");
+            }
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Saving the active session failed.");
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         await _gate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
@@ -188,6 +389,11 @@ public sealed class CompanionService : IAsyncDisposable
         finally
         {
             _gate.Release();
+        }
+
+        if (_ai is not null)
+        {
+            _ai.TextReady -= OnAiTextReady;
         }
 
         await _timer.DisposeAsync().ConfigureAwait(false);
@@ -424,6 +630,8 @@ public sealed class CompanionService : IAsyncDisposable
                 break;
         }
 
+        // Written before the answer, so what the watch was told is also what survives a crash.
+        PersistActiveSession();
         SendResult(connection, message.Id, error);
         BroadcastState();
     }
@@ -497,6 +705,7 @@ public sealed class CompanionService : IAsyncDisposable
         }
 
         _session = session;
+        _ai?.ResetSession();
         Activity(ActivityKind.SessionStarted, session.CurrentSlide);
         return null;
     }
@@ -535,9 +744,12 @@ public sealed class CompanionService : IAsyncDisposable
         if (willMove && _sendKeys)
         {
             var delivery = Deliver(direction);
+#if DEBUG
+            _log.LogInformation("PresentaDebug key delivery direction={Direction} result={Result}", direction, delivery);
+#endif
             if (delivery != KeyDeliveryResult.Delivered)
             {
-                Activity(ActivityKind.KeyFailed, session.CurrentSlide);
+                Activity(ActivityKind.KeyFailed, session.CurrentSlide, delivery);
                 return ToError(delivery);
             }
 
@@ -565,8 +777,18 @@ public sealed class CompanionService : IAsyncDisposable
         return null;
     }
 
+    /// <summary>True in Debug builds only: each key delivery then writes one timing line to the log (RNF 03 measurement).</summary>
+#if DEBUG
+    public const bool TimingDiagnosticsEnabled = true;
+#else
+    public const bool TimingDiagnosticsEnabled = false;
+#endif
+
     private KeyDeliveryResult Deliver(SlideDirection direction)
     {
+#if DEBUG
+        var started = _time.GetTimestamp();
+#endif
         try
         {
             return _keyboard.Send(direction);
@@ -576,6 +798,16 @@ public sealed class CompanionService : IAsyncDisposable
             _log.LogError(ex, "Sending the {Direction} key failed.", direction);
             return KeyDeliveryResult.SendFailed;
         }
+#if DEBUG
+        finally
+        {
+            // Time spent bringing the target window forward and injecting the key. The slideshow repaint is not included.
+            _log.LogInformation(
+                "PresentaTiming key={Direction} activateAndInjectMs={Milliseconds}",
+                direction,
+                (long)_time.GetElapsedTime(started).TotalMilliseconds);
+        }
+#endif
     }
 
     private static Wire.ErrorCode ToError(KeyDeliveryResult delivery) => delivery switch
@@ -608,14 +840,24 @@ public sealed class CompanionService : IAsyncDisposable
         var session = _session!;
         _session = null;
         _clientLostAt = null;
+        _ai?.ResetSession();
         var summary = session.BuildSummary().Value!;
+        var saved = false;
         try
         {
             await _history.SaveAsync(summary).ConfigureAwait(false);
+            saved = true;
         }
         catch (Exception ex)
         {
             _log.LogError(ex, "Saving the history record failed.");
+        }
+
+        // The file is removed only once the record is safe in the history. If saving failed it stays, so that the next
+        // start can still recover the session as interrupted.
+        if (saved && !_activeSessions.Delete())
+        {
+            _log.LogWarning("The saved active session could not be removed.");
         }
 
         Activity(summary.FinalState == Domain.FinalState.InterruptedByDisconnection ? ActivityKind.SessionInterrupted : ActivityKind.SessionFinished);
@@ -664,6 +906,12 @@ public sealed class CompanionService : IAsyncDisposable
                     changed = true;
                 }
 
+                _ticksSinceSave++;
+                if (_session is not null && (changed || _ticksSinceSave >= _saveEveryTicks))
+                {
+                    PersistActiveSession();
+                }
+
                 _ticksSinceRefresh++;
                 if (changed || (_client is not null && _ticksSinceRefresh >= _refreshEveryTicks))
                 {
@@ -689,7 +937,37 @@ public sealed class CompanionService : IAsyncDisposable
     // ---- helpers (call with the gate held) ----
 
     private StatePayload BuildState() =>
-        new(_time.GetUtcNow(), _session is null ? null : ProtocolMapper.ToPayload(_session.GetSnapshot()));
+        new(_time.GetUtcNow(), _session is null ? null : ProtocolMapper.ToPayload(WithAi(_session.GetSnapshot())));
+
+    // Fills the optional text of the recommendation from the cache. Never waits for the provider.
+    private SessionSnapshot WithAi(SessionSnapshot snapshot) =>
+        _ai is null ? snapshot : snapshot with { Recommendation = _ai.Apply(snapshot) };
+
+    // A text arrived in the background: send the watch a new state without waiting for the next periodic one.
+    private void OnAiTextReady(object? sender, EventArgs e) => _ = PushStateAsync();
+
+    private async Task PushStateAsync()
+    {
+        try
+        {
+            await _gate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+            try
+            {
+                if (!_disposed && _session is not null)
+                {
+                    BroadcastState();
+                }
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Sending the state after an AI text failed.");
+        }
+    }
 
     private void BroadcastState()
     {
@@ -723,11 +1001,11 @@ public sealed class CompanionService : IAsyncDisposable
         }
     }
 
-    private void Activity(ActivityKind kind, int? slide = null)
+    private void Activity(ActivityKind kind, int? slide = null, KeyDeliveryResult? keyResult = null)
     {
         try
         {
-            ActivityOccurred?.Invoke(this, new CompanionActivity(_time.GetUtcNow(), kind, slide));
+            ActivityOccurred?.Invoke(this, new CompanionActivity(_time.GetUtcNow(), kind, slide, keyResult));
         }
         catch (Exception ex)
         {
