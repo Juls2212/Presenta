@@ -21,6 +21,7 @@
     <ProjectReference Include="..\..\src\Presenta.Keyboard.Windows\Presenta.Keyboard.Windows.csproj" />
     <ProjectReference Include="..\..\src\Presenta.Targeting\Presenta.Targeting.csproj" />
     <ProjectReference Include="..\..\src\Presenta.Domain\Presenta.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Presenta.Companion.ViewModels\Presenta.Companion.ViewModels.csproj" />
     <ProjectReference Include="..\Presenta.WindowProbe\Presenta.WindowProbe.csproj" />
   </ItemGroup>
 
