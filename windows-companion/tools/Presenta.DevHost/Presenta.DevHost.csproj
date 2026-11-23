@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <!-- Deliberately no reference to Presenta.Keyboard.Windows: this host can never press a real key. -->
+    <ProjectReference Include="..\..\src\Presenta.Ai\Presenta.Ai.csproj" />
     <ProjectReference Include="..\..\src\Presenta.Domain\Presenta.Domain.csproj" />
     <ProjectReference Include="..\..\src\Presenta.Persistence\Presenta.Persistence.csproj" />
     <ProjectReference Include="..\..\src\Presenta.Server\Presenta.Server.csproj" />
