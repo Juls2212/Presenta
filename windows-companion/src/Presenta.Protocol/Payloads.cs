@@ -53,7 +53,8 @@ public sealed record AlertPayload(
     long RaisedAtElapsedMs,
     long RemainingMs,
     int SlidesRemaining,
-    int SlideDeviation);
+    int SlideDeviation,
+    int Sequence);
 
 public sealed record RecommendationPayload(
     RecommendationCode Code,
