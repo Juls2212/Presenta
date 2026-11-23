@@ -1,5 +1,6 @@
 package com.presenta.wear.ui.viewmodel
 
+import com.presenta.wear.format.RecommendationText
 import com.presenta.wear.model.ConnectionState
 import com.presenta.wear.model.ErrorCode
 import com.presenta.wear.model.SessionState
@@ -36,6 +37,7 @@ object ControlStateFactory {
             progress = if (snapshot.plannedDurationMs > 0) (elapsedMs.toFloat() / snapshot.plannedDurationMs).coerceIn(0f, 1f) else 0f,
             paceStatus = snapshot.paceStatus,
             recommendation = snapshot.recommendation?.code,
+            recommendationText = RecommendationText.clean(snapshot.recommendation?.freeText),
             alert = snapshot.activeAlert,
             slidesRemaining = snapshot.slidesRemaining,
             overlay = overlay,
