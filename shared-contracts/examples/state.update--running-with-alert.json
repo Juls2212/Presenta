@@ -18,7 +18,7 @@
       "slidesRemaining": 9,
       "averageSlidesPerMinute": 1.1,
       "finalState": null,
-      "activeAlert": { "kind": "timeRunningOut", "severity": "warning", "raisedAtElapsedMs": 600000, "remainingMs": 300000, "slidesRemaining": 9, "slideDeviation": -2 },
+      "activeAlert": { "kind": "timeRunningOut", "severity": "warning", "raisedAtElapsedMs": 600000, "remainingMs": 300000, "slidesRemaining": 9, "slideDeviation": -2, "sequence": 1 },
       "recommendation": { "code": "speedUpSlightly", "slidesRemaining": 9, "timeRemainingMs": 300000, "freeText": null }
     }
   }
