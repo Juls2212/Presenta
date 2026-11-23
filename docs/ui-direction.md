@@ -111,6 +111,14 @@ Compared by eye against the sheet (no pixel overlay was made), the screens keep 
 
 The Control ring represents **elapsed time**: elapsed divided by planned duration, clamped to 0..1 and interpolated between snapshots. The slide number stays textual. In overtime the ring is full and red. The ring is also exposed to accessibility as a progress range. If it should show slide progress after all, only what the view model passes as `progress` changes.
 
+## Decided in Phase 6
+
+- **Haptic patterns** (ADR-60), one per new alert and one for a failed command, nothing else: info is one short pulse (90 ms); warning is two short pulses (90 ms, a 140 ms pause, 90 ms); critical is one long pulse (500 ms), a 140 ms pause, then one short pulse (90 ms); a failed command is one short pulse. Warning covers time running out, behind schedule, and too fast; critical covers the last minute and overtime.
+- **Color.** Red is used for overtime only (the ring, the headline, and the pill). Every other alert, including "the last minute", is amber. This is now a tested rule.
+- **History dates** read "Hoy", "Ayer", and a day with two digits and a capitalized three-letter month ("08 Oct"); session names keep the month in lowercase inside the sentence ("Presentación 31 oct"). Pace keeps a dot as the decimal separator ("1.37").
+- **Screen on.** The screen stays on while a session is running or paused and Control is showing; it costs battery (ADR-62).
+- **No screen output changed** in Phase 6 except the capitalized month abbreviations in resources, which the previews already showed capitalized ("08 Oct"), so `docs/ui-previews/` was not regenerated.
+
 ## Design rules
 
 - Touch targets are at least 48 dp; the few Small Round exceptions are listed in ADR-31.
