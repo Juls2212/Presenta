@@ -98,6 +98,7 @@ Language-neutral specification of the messages exchanged between the watch (`wea
 | `remainingMs` | integer | Remaining time when raised. |
 | `slidesRemaining` | integer | Slides left when raised. |
 | `slideDeviation` | integer | Actual minus expected slide, rounded. Negative means behind. |
+| `sequence` | integer (≥ 1) | Identity of this alert instance within the session: 1 for the first alert, then 2, 3, and so on. A pace alert that fires again after the cooldown has a new number. A client that wants to react once per alert (for example with a vibration) compares it with the last one it handled; the same alert repeated in later snapshots keeps the same number, and acknowledging it does not change it. Added after the first release of v1 as an additive field. |
 
 ### Recommendation
 
@@ -106,7 +107,7 @@ Language-neutral specification of the messages exchanged between the watch (`wea
 | `code` | enum | `onTrack`, `speedUpSlightly`, `speedUpNow`, `slowDown`, `wrapUp`, `overtime`. |
 | `slidesRemaining` | integer | Slides left. |
 | `timeRemainingMs` | integer | Remaining time. May be negative. |
-| `freeText` | nullable string | Reserved for a future external provider. Always `null` in V1. |
+| `freeText` | nullable string, at most 80 characters | An optional short Spanish tip worded by an external language model (ADR-72 to ADR-79). `null` unless the companion's AI option is on and a valid text exists for the current situation, which in practice means while an alert is active. It is display-only: a client never derives pace, alerts or timing from it, and when it is `null` the client shows its own wording for `code`. The companion sends a single line of at most 40 characters without quotes, markdown or links; a client should ignore a text that is empty or longer than 80 characters. The field itself was always required (and `null`) in V1; this entry only gives it content and a length limit (the schema's `maxLength`). |
 
 ### History item (also the payload of `session.summary`)
 
