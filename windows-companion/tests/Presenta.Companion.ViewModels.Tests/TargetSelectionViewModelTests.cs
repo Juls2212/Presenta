@@ -1,3 +1,4 @@
+using Presenta.Domain.Keyboard;
 using Presenta.Server;
 using Presenta.Targeting;
 using Presenta.TestSupport;
@@ -10,6 +11,9 @@ public class TargetSelectionViewModelTests
     private static readonly WindowInfo Show = Window(10, "Slide Show - deck.pptx", "POWERPNT", "screenClass");
     private static readonly WindowInfo Notes = Window(11, "notes.txt - Notepad", "notepad", "Notepad");
     private static readonly WindowInfo Studio = Window(20, "Studio", "studio", "Frame");
+
+    // A second slide show: with two of them nothing is chosen automatically, so a test can choose by hand (ADR-68).
+    private static readonly WindowInfo OtherShow = Window(12, "Slide Show - zeta.pptx", "POWERPNT", "screenClass");
 
     private static (TargetSelectionViewModel Vm, PresentationTargetService Service, FakeWindowSystem Windows, InMemoryTargetSettingsStore Store) Create(
         params WindowInfo[] windows)
@@ -41,7 +45,7 @@ public class TargetSelectionViewModelTests
     [Fact]
     public void Nothing_chosen_shows_the_none_status_and_no_selection()
     {
-        var (vm, _, _, _) = Create(Show);
+        var (vm, _, _, _) = Create(Notes);
 
         Assert.Null(vm.SelectedItem);
         Assert.Equal(UiText.Get("Target_Status_None"), vm.StatusText);
@@ -51,7 +55,7 @@ public class TargetSelectionViewModelTests
     [Fact]
     public void Choosing_a_row_saves_the_choice_and_reports_it_ready()
     {
-        var (vm, service, _, store) = Create(Show, Notes);
+        var (vm, service, _, store) = Create(Show, Notes, OtherShow);
 
         vm.SelectedItem = vm.Items[0];
 
@@ -106,7 +110,7 @@ public class TargetSelectionViewModelTests
     [InlineData("duplicate", "Target_Status_Ambiguous", TargetSeverity.Warning)]
     public void The_status_follows_what_happens_to_the_window(string change, string expectedKey, TargetSeverity expectedSeverity)
     {
-        var (vm, _, windows, _) = Create(Show);
+        var (vm, _, windows, _) = Create(Show, OtherShow);
         vm.SelectedItem = vm.Items[0];
         switch (change)
         {
@@ -170,7 +174,7 @@ public class TargetSelectionViewModelTests
     [Fact]
     public async Task Verify_with_nothing_chosen_says_none_chosen()
     {
-        var (vm, _, windows, _) = Create(Show);
+        var (vm, _, windows, _) = Create(Notes);
 
         vm.VerifyCommand.Execute(null);
         await vm.LastOperation!;
@@ -182,7 +186,7 @@ public class TargetSelectionViewModelTests
     [Fact]
     public async Task The_timer_tick_keeps_the_verification_message_readable_for_a_few_ticks()
     {
-        var (vm, _, windows, _) = Create(Show, Studio);
+        var (vm, _, windows, _) = Create(Show, Studio, OtherShow);
         vm.SelectedItem = vm.Items[0];
         windows.Foreground = 20;
         vm.VerifyCommand.Execute(null);
@@ -262,5 +266,128 @@ public class TargetSelectionViewModelTests
         Assert.Equal(UiText.Get("Target_Hint"), labels.TargetHint);
         Assert.Equal(UiText.Get("Target_Empty"), labels.TargetEmpty);
         Assert.Equal(UiText.Get("Target_KeysOff"), labels.TargetKeysOff);
+    }
+
+    // ---- Phase 7b-1: diagnostic button and the slide-show hint ----
+
+    private sealed class RecordingClipboard : IClipboard
+    {
+        public List<string> Texts { get; } = new();
+
+        public bool Fail { get; set; }
+
+        public void SetText(string text)
+        {
+            if (Fail)
+            {
+                throw new System.Runtime.InteropServices.ExternalException("The clipboard is busy.");
+            }
+
+            Texts.Add(text);
+        }
+    }
+
+    private static (TargetSelectionViewModel Vm, FakeWindowSystem Windows, RecordingClipboard Clipboard) CreateWithClipboard(params WindowInfo[] windows)
+    {
+        var system = new FakeWindowSystem();
+        foreach (var window in windows)
+        {
+            system.Add(window);
+        }
+
+        var service = new PresentationTargetService(system, new InMemoryTargetSettingsStore());
+        var clipboard = new RecordingClipboard();
+        return (new TargetSelectionViewModel(service, new ImmediateDispatcher(), clipboard), system, clipboard);
+    }
+
+    [Fact]
+    public async Task Copy_diagnostic_puts_the_report_on_the_clipboard_confirms_it_and_sends_no_key()
+    {
+        var (vm, windows, clipboard) = CreateWithClipboard(Show, Studio);
+        vm.SelectedItem = vm.Items.First(i => i.Window.Handle == Show.Handle);
+        windows.Foreground = Studio.Handle;
+
+        vm.CopyDiagnosticCommand.Execute(null);
+        await vm.LastOperation!;
+
+        var report = Assert.Single(clipboard.Texts);
+        Assert.StartsWith("Presenta window diagnostic report", report, StringComparison.Ordinal);
+        Assert.Contains("class 'screenClass'", report, StringComparison.Ordinal);
+        Assert.Equal(UiText.Get("Target_Diagnostic_Copied"), vm.StatusText);
+        Assert.Equal(TargetSeverity.Good, vm.Severity);
+        Assert.Empty(windows.Keys);
+        Assert.DoesNotContain(windows.Calls, c => c.StartsWith("key", StringComparison.Ordinal));
+        Assert.Contains("activate " + Show.Handle, windows.Calls); // the same activation as a real send
+    }
+
+    [Fact]
+    public async Task A_clipboard_that_fails_shows_the_failure_message_and_still_sends_no_key()
+    {
+        var (vm, windows, clipboard) = CreateWithClipboard(Show);
+        clipboard.Fail = true;
+
+        vm.CopyDiagnosticCommand.Execute(null);
+        await vm.LastOperation!;
+
+        Assert.Empty(clipboard.Texts);
+        Assert.Equal(UiText.Get("Target_Diagnostic_Failed"), vm.StatusText);
+        Assert.Equal(TargetSeverity.Warning, vm.Severity);
+        Assert.Empty(windows.Keys);
+    }
+
+    [Fact]
+    public async Task Without_a_clipboard_the_failure_message_is_shown()
+    {
+        var (vm, _, _, _) = Create(Show);
+
+        await vm.CopyDiagnosticAsync();
+
+        Assert.Equal(UiText.Get("Target_Diagnostic_Failed"), vm.StatusText);
+    }
+
+    [Fact]
+    public void Slide_show_entries_are_labelled_and_other_powerpoint_windows_say_they_are_not_the_show()
+    {
+        var editing = Window(12, "deck.pptx - PowerPoint", "POWERPNT", "PPTFrameClass");
+        var (vm, _, _, _) = Create(Notes, Show, editing);
+
+        var show = vm.Items.Single(i => i.Window.Handle == Show.Handle);
+        var other = vm.Items.Single(i => i.Window.Handle == editing.Handle);
+        var plain = vm.Items.Single(i => i.Window.Handle == Notes.Handle);
+        Assert.True(show.IsSlideShow);
+        Assert.False(show.IsOtherPowerPointWindow);
+        Assert.Equal(UiText.Format("Target_ItemSuggested", Show.Title, Show.ProcessName), show.Display);
+        Assert.True(other.IsOtherPowerPointWindow);
+        Assert.False(other.IsSlideShow);
+        Assert.Equal(UiText.Format("Target_ItemPowerPointOther", editing.Title, editing.ProcessName), other.Display);
+        Assert.Equal(UiText.Format("Target_Item", Notes.Title, Notes.ProcessName), plain.Display);
+        Assert.NotEqual(other.Display, UiText.Format("Target_Item", editing.Title, editing.ProcessName));
+    }
+
+    [Theory]
+    [InlineData(KeyDeliveryResult.NoTargetSelected)]
+    [InlineData(KeyDeliveryResult.TargetNotFound)]
+    [InlineData(KeyDeliveryResult.TargetAmbiguous)]
+    [InlineData(KeyDeliveryResult.TargetElevated)]
+    [InlineData(KeyDeliveryResult.ActivationFailed)]
+    [InlineData(KeyDeliveryResult.NotConfirmedForeground)]
+    [InlineData(KeyDeliveryResult.SendFailed)]
+    public void Every_failure_reason_has_its_own_spanish_text_in_the_resources(KeyDeliveryResult failure)
+    {
+        var reason = UiText.Get("Event_KeyReason_" + failure);
+
+        Assert.False(string.IsNullOrWhiteSpace(reason));
+        Assert.Equal(UiText.Format("Event_KeyFailedReason", reason), UiText.Format("Event_KeyFailedReason", UiText.Get("Event_KeyReason_" + failure)));
+        Assert.StartsWith(UiText.Get("Event_KeyFailed"), UiText.Format("Event_KeyFailedReason", reason), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_failure_reasons_are_all_different_and_cover_every_failing_result()
+    {
+        var failures = Enum.GetValues<KeyDeliveryResult>().Where(r => r != KeyDeliveryResult.Delivered).ToList();
+
+        var texts = failures.Select(f => UiText.Get("Event_KeyReason_" + f)).ToList();
+
+        Assert.Equal(failures.Count, texts.Distinct().Count());
     }
 }
