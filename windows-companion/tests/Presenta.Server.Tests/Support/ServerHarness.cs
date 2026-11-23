@@ -45,6 +45,7 @@ internal sealed class ServerHarness : IAsyncDisposable
     public const string Code = "123456";
 
     private readonly List<TestClient> _clients = new();
+    private List<CompanionActivity> _activities = new();
 
     private ServerHarness(CompanionHost host, ManualTimeProvider time, RecordingSlideKeyboard keyboard, IHistoryStore history, CapturingLoggerProvider logs)
     {
@@ -71,10 +72,25 @@ internal sealed class ServerHarness : IAsyncDisposable
 
     public int Port => Host.Port;
 
+    /// <summary>Activity events raised since the harness started (recovery at startup included).</summary>
+    public IReadOnlyList<CompanionActivity> Activities
+    {
+        get
+        {
+            lock (_activities)
+            {
+                return _activities.ToArray();
+            }
+        }
+    }
+
     public static async Task<ServerHarness> StartAsync(
         Func<CompanionServerOptions, CompanionServerOptions>? configure = null,
         IHistoryStore? history = null,
-        ManualTimeProvider? time = null)
+        ManualTimeProvider? time = null,
+        IActiveSessionStore? activeSessions = null,
+        ICompanionSettingsStore? settings = null,
+        AiRecommendationEnricher? ai = null)
     {
         var options = new CompanionServerOptions { Port = 0, PairingCode = Code };
         if (configure is not null)
@@ -87,9 +103,17 @@ internal sealed class ServerHarness : IAsyncDisposable
         var clock = time ?? new ManualTimeProvider();
         var keyboard = new RecordingSlideKeyboard();
         var store = history ?? new InMemoryHistoryStore();
-        var host = new CompanionHost(options, keyboard, store, clock, loggerFactory);
+        var host = new CompanionHost(options, keyboard, store, clock, loggerFactory, activeSessions, settings, ai);
+        var activities = new List<CompanionActivity>();
+        host.Service.ActivityOccurred += (_, activity) =>
+        {
+            lock (activities)
+            {
+                activities.Add(activity);
+            }
+        };
         await host.StartAsync();
-        return new ServerHarness(host, clock, keyboard, store, logs);
+        return new ServerHarness(host, clock, keyboard, store, logs) { _activities = activities };
     }
 
     /// <summary>Opens a WebSocket and (by default) pairs it with the correct code.</summary>
