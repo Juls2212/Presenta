@@ -6,9 +6,15 @@ Stack: Kotlin, Jetpack Compose for Wear OS, Wear Material 3 (stable 1.7.1), Wear
 This module never touches Windows keyboard APIs or OS automation. It will only talk to the companion through the protocol in `../shared-contracts/`.
 Every user-visible string is Spanish and lives only in `app/src/main/res/values/strings.xml` (English resource names).
 
-## Status (Phase 5)
+## Status (Phase 6)
 
-The whole UI exists and, by default, talks to the Windows companion through `RemotePresentaRepository` (OkHttp WebSocket, protocol v1, DataStore for the pairing code). The fake repository is still used by previews, screenshots, and tests; build with `-PuseFakeRepository=true` to run the app on it. There are no haptics yet (Phase 6). `PresentaApplication` is the only composition point.
+The whole UI exists and, by default, talks to the Windows companion through `RemotePresentaRepository` (OkHttp WebSocket, protocol v1, DataStore for the pairing code). The fake repository is still used by previews, screenshots, and tests; build with `-PuseFakeRepository=true` to run the app on it. `PresentaApplication` is the only composition point.
+
+Phase 6 added:
+
+- **Haptics** (`haptics/`): `HapticsCoordinator` plays one `HapticPattern` for each new alert (identified by the alert's `sequence`) and one short pulse for a failed command; nothing else vibrates. `AndroidHapticsPlayer` is the real vibrator (needs the `VIBRATE` permission, declared); tests use a recording player. Debug builds write one Logcat line per event under the tag `PresentaHaptics` (`adb logcat -s PresentaHaptics:D`); release builds write nothing. How the pulses feel can only be judged on a physical watch (ADR-60, ADR-61).
+- **Screen on:** the screen stays on while a session is running or paused and Control is showing (`KeepScreenOn`, the view flag, no wake lock; ADR-62).
+- **History dates:** "Hoy", "Ayer", "08 Oct" (capitalized months, two-digit days; see "Decided in Phase 6" in `docs/ui-direction.md`).
 
 How the app connects:
 
@@ -16,9 +22,10 @@ How the app connects:
 - Cleartext `ws://` is allowed only for `10.0.2.2`, `localhost`, and `127.0.0.1` (`network_security_config`). **A physical watch on a LAN address is not supported yet** (Phase 8).
 - To use `adb reverse tcp:8765 tcp:8765` with `localhost` on a **debug** build:
   `adb shell run-as com.presenta.wear sh -c "echo ws://localhost:8765 > files/server_address.txt"`, then restart the app. Release builds ignore this file.
-- The watch pings every 1.5 s and treats 3 s of silence as a lost connection (noticed within 3.5 s), then retries with a short backoff for 30 s. See ADR-48.
+- **Optional AI text (Phase 10):** when the companion's recommendation carries a short `freeText`, the alert state shows it (two lines at most, then an ellipsis) instead of the usual wording of the recommendation; the pace pill under the clock never changes. A missing, blank, control-character or longer-than-80 text falls back to the usual wording. No new strings. See ADR-78.
+- The watch pings every 1.5 s and treats 3 s of silence as a lost connection (noticed within 3.5 s), then retries with a short backoff. When no session is running or paused it gives up after 30 s (the screen offers "Reintentar"); during a session it never gives up and keeps showing the session as "Reconectando…" until the companion is back. See ADR-48 and ADR-71.
 
-Manual testing steps: `../docs/manual-test-guide.md`.
+Manual testing: `../docs/validation/validation-guide.md` (the tests) and `../docs/manual-test-guide.md` (setup and troubleshooting).
 
 ## Open the project
 
