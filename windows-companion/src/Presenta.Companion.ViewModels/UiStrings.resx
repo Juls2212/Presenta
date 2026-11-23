@@ -47,6 +47,12 @@
   <data name="Session_Overtime" xml:space="preserve"><value>Pasaste {0}</value></data>
   <data name="Session_Paused" xml:space="preserve"><value>En pausa</value></data>
 
+  <!-- Closing the window during a session -->
+  <data name="Close_Title" xml:space="preserve"><value>Hay una presentación en curso</value></data>
+  <data name="Close_Message" xml:space="preserve"><value>Si cierras Presenta ahora, la presentación se guardará en el historial como interrumpida y el reloj dejará de controlar las diapositivas.
+
+¿Quieres cerrar y guardar?</value></data>
+
   <!-- Activity list -->
   <data name="Events_Title" xml:space="preserve"><value>Actividad reciente</value></data>
   <data name="Events_Empty" xml:space="preserve"><value>Aún no hay actividad</value></data>
@@ -67,6 +73,14 @@
   <data name="Event_SlideSet" xml:space="preserve"><value>Contador ajustado a la diapositiva {0}</value></data>
   <data name="Event_AlertRaised" xml:space="preserve"><value>Alerta enviada al reloj</value></data>
   <data name="Event_KeyFailed" xml:space="preserve"><value>No se pudo enviar la tecla</value></data>
+  <data name="Event_KeyFailedReason" xml:space="preserve"><value>No se pudo enviar la tecla: {0}</value></data>
+  <data name="Event_KeyReason_NoTargetSelected" xml:space="preserve"><value>no hay una ventana elegida</value></data>
+  <data name="Event_KeyReason_TargetNotFound" xml:space="preserve"><value>la ventana elegida ya no existe</value></data>
+  <data name="Event_KeyReason_TargetAmbiguous" xml:space="preserve"><value>hay varias ventanas iguales</value></data>
+  <data name="Event_KeyReason_TargetElevated" xml:space="preserve"><value>la ventana se ejecuta como administrador</value></data>
+  <data name="Event_KeyReason_ActivationFailed" xml:space="preserve"><value>Windows no dejó traer la ventana al frente</value></data>
+  <data name="Event_KeyReason_NotConfirmedForeground" xml:space="preserve"><value>la ventana no llegó a quedar al frente</value></data>
+  <data name="Event_KeyReason_SendFailed" xml:space="preserve"><value>Windows no aceptó la tecla</value></data>
   <data name="Event_StartRejectedNoTarget" xml:space="preserve"><value>No se inició: falta elegir la ventana de la presentación</value></data>
 
   <!-- Presentation window (target) -->
@@ -74,6 +88,10 @@
   <data name="Target_Hint" xml:space="preserve"><value>Elige la ventana donde se muestran las diapositivas. Las teclas solo se envían a esa ventana.</value></data>
   <data name="Target_Refresh" xml:space="preserve"><value>Actualizar lista</value></data>
   <data name="Target_Verify" xml:space="preserve"><value>Verificar</value></data>
+  <data name="Target_Diagnostic" xml:space="preserve"><value>Copiar diagnóstico</value></data>
+  <data name="Target_Diagnostic_Copied" xml:space="preserve"><value>Diagnóstico copiado. Revisa que no incluya nombres de archivos que no quieras compartir y pégalo en un archivo de texto.</value></data>
+  <data name="Target_Diagnostic_Failed" xml:space="preserve"><value>No se pudo copiar el diagnóstico. Inténtalo de nuevo.</value></data>
+  <data name="Target_ItemPowerPointOther" xml:space="preserve"><value>{0} ({1}): no es la ventana de la presentación en pantalla</value></data>
   <data name="Target_Empty" xml:space="preserve"><value>No se encontraron ventanas. Abre la presentación y actualiza la lista.</value></data>
   <data name="Target_KeysOff" xml:space="preserve"><value>Las teclas están apagadas: no hace falta elegir una ventana.</value></data>
   <data name="Target_Item" xml:space="preserve"><value>{0} ({1})</value></data>
@@ -87,4 +105,28 @@
   <data name="Target_Verify_Ok" xml:space="preserve"><value>Verificada: la ventana pasó al frente</value></data>
   <data name="Target_Verify_Refused" xml:space="preserve"><value>Windows no dejó traer la ventana al frente. Haz clic en ella e inténtalo de nuevo.</value></data>
   <data name="Target_Verify_NotConfirmed" xml:space="preserve"><value>La ventana no llegó a quedar al frente. Inténtalo de nuevo.</value></data>
+  <data name="Target_Status_AutoSelected" xml:space="preserve"><value>Se eligió sola la única presentación abierta. Pulsa Verificar para comprobarla.</value></data>
+  <data name="Target_Status_ChooseOne" xml:space="preserve"><value>Hay varias presentaciones abiertas. Elige la que vas a mostrar.</value></data>
+  <data name="Target_Warning_NotSlideShow" xml:space="preserve"><value>Esta no es la ventana de la presentación en pantalla. Inicia la presentación y elige la entrada que empieza por Sugerida.</value></data>
+
+  <!-- Recovery, remembered code and single instance (Phase 8) -->
+  <data name="Event_SessionRecovered" xml:space="preserve"><value>Se guardó una presentación interrumpida</value></data>
+  <data name="Pairing_Remember" xml:space="preserve"><value>Recordar código de vinculación</value></data>
+  <data name="Pairing_Remember_Hint" xml:space="preserve"><value>Si está apagado, el código cambia cada vez que abres Presenta y hay que escribirlo otra vez en el reloj</value></data>
+  <data name="SingleInstance_Message" xml:space="preserve"><value>Presenta ya está abierto. Búscalo en la barra de tareas.</value></data>
+
+  <!-- Optional AI wording of the recommendation (Phase 10) -->
+  <data name="Ai_Title" xml:space="preserve"><value>Recomendaciones con IA</value></data>
+  <data name="Ai_Toggle" xml:space="preserve"><value>Usar IA para redactar las recomendaciones</value></data>
+  <data name="Ai_Privacy" xml:space="preserve"><value>Solo se envían cifras de la presentación, nunca nombres ni archivos.</value></data>
+  <data name="Ai_Status_NotConfigured" xml:space="preserve"><value>No disponible: falta configurar la IA en este computador. Los pasos están en el README de windows-companion.</value></data>
+  <data name="Ai_Status_InvalidAddress" xml:space="preserve"><value>No disponible: la dirección de la IA no es válida.</value></data>
+  <data name="Ai_Status_InsecureAddress" xml:space="preserve"><value>No disponible: la dirección de la IA debe empezar por https.</value></data>
+  <data name="Ai_Status_Disabled" xml:space="preserve"><value>Apagada: se usan las frases de siempre.</value></data>
+  <data name="Ai_Status_Ready" xml:space="preserve"><value>Lista: se pedirá un texto cuando salte una alerta.</value></data>
+  <data name="Ai_Status_Working" xml:space="preserve"><value>Pidiendo un texto a la IA…</value></data>
+  <data name="Ai_Status_Paused" xml:space="preserve"><value>En pausa por errores: se usan las frases de siempre.</value></data>
+  <data name="Ai_Status_InvalidKey" xml:space="preserve"><value>La IA rechazó la clave: se usan las frases de siempre.</value></data>
+  <data name="Ai_LastText" xml:space="preserve"><value>Último texto: {0}</value></data>
+  <data name="Ai_LastTextNone" xml:space="preserve"><value>Todavía no hay un texto de la IA.</value></data>
 </root>
