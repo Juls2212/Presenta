@@ -10,6 +10,7 @@ import com.presenta.wear.model.ErrorCode
 import com.presenta.wear.model.HistoryItem
 import com.presenta.wear.model.HistoryResult
 import com.presenta.wear.model.PairingState
+import com.presenta.wear.model.SessionState
 import com.presenta.wear.model.SessionStatus
 import com.presenta.wear.model.SetupLimits
 import com.presenta.wear.ui.screens.control.ControlOverlay
@@ -31,6 +32,9 @@ import kotlinx.coroutines.launch
 
 private const val STOP_TIMEOUT_MS = 5_000L
 
+private fun SessionStatus.isLive(): Boolean =
+    this is SessionStatus.Active && (snapshot.state == SessionState.Running || snapshot.state == SessionState.Paused)
+
 /**
  * App-level state: connection, whether a session is active, and the summary of the session that just ended.
  * The summary stays until [consumeSummary] so the Summary screen survives recomposition.
@@ -43,6 +47,11 @@ class AppViewModel(private val repository: PresentaRepository) : ViewModel() {
     val sessionActive: StateFlow<Boolean> = repository.session
         .map { it is SessionStatus.Active }
         .stateIn(viewModelScope, SharingStarted.Eagerly, repository.session.value is SessionStatus.Active)
+
+    /** True while a session is running or paused: the only time the screen is kept on (ADR-62). */
+    val sessionLive: StateFlow<Boolean> = repository.session
+        .map { it.isLive() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, repository.session.value.isLive())
 
     private val _lastSummary = MutableStateFlow<HistoryItem?>(null)
     val lastSummary: StateFlow<HistoryItem?> = _lastSummary
@@ -64,7 +73,10 @@ class HomeViewModel(private val repository: PresentaRepository) : ViewModel() {
     fun retry() = repository.retryConnection()
 }
 
-class SetupViewModel(private val repository: PresentaRepository) : ViewModel() {
+class SetupViewModel(
+    private val repository: PresentaRepository,
+    private val onCommandFailed: () -> Unit = {},
+) : ViewModel() {
     private val _state = MutableStateFlow(SetupUiState())
     val state: StateFlow<SetupUiState> = _state
 
@@ -88,7 +100,10 @@ class SetupViewModel(private val repository: PresentaRepository) : ViewModel() {
                     _state.update { it.copy(starting = false) }
                     onStarted()
                 }
-                is CommandResult.Failure -> _state.update { it.copy(starting = false, error = result.code) }
+                is CommandResult.Failure -> {
+                    _state.update { it.copy(starting = false, error = result.code) }
+                    onCommandFailed()
+                }
             }
         }
     }
@@ -98,6 +113,7 @@ class ControlViewModel(
     private val repository: PresentaRepository,
     private val clock: MonotonicClock,
     displayTicks: Flow<Unit>,
+    private val onCommandFailed: () -> Unit = {},
 ) : ViewModel() {
     private val overlay = MutableStateFlow(ControlOverlay.None)
     private val selectorSlide = MutableStateFlow(1)
@@ -179,7 +195,10 @@ class ControlViewModel(
     private fun run(command: suspend () -> CommandResult) {
         viewModelScope.launch {
             val result = command()
-            if (result is CommandResult.Failure) message.value = result.code
+            if (result is CommandResult.Failure) {
+                message.value = result.code
+                onCommandFailed()
+            }
         }
     }
 }
