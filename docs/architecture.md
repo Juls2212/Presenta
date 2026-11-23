@@ -166,6 +166,14 @@ sequenceDiagram
     S->>W: state.update (activeAlert null)
 ```
 
+### Haptics, screen on, and closing (Phase 6)
+
+- **Alert identity.** Every alert carries `sequence` (1, 2, 3 within a session), assigned by the domain when it is raised. The same alert in later snapshots keeps its number (ADR-61).
+- **Haptics.** `HapticsCoordinator` (watch, no Android types) observes the session flow and asks a `HapticsPlayer` to play one `HapticPattern` for each new `sequence`; it stays silent for repeats, acknowledgments, reconnections, an alert already active when the app starts, and late alerts. `AndroidHapticsPlayer` is the only code that touches the vibrator; debug builds also write one Logcat line per event (ADR-60). Composables know nothing about haptics; the view models only report a failed command.
+- **Screen on.** `KeepScreenOn` sets the view flag while a session is running or paused and Control is showing (ADR-62).
+- **Closing the companion.** The window holds back a close request during a running or paused session; `MainViewModel.RequestCloseAsync` asks (the Spanish text is in the `.resx`), and on confirmation `CompanionService.InterruptActiveSessionAsync` ends the session as `interruptedByDisconnection` with exactly one history record before the server stops (ADR-64).
+- **Developer clock.** `Presenta.DevHost --time-scale N` wraps the system clock in a scaled `TimeProvider`; it exists only in that tool (ADR-63).
+
 ## Sequence: finish, auto-save, summary
 
 ```mermaid
@@ -296,11 +304,11 @@ stateDiagram-v2
     Handshaking --> BackingOff: timeout
     Online --> BackingOff: closed, failed or silent
     BackingOff --> Connecting: backoff elapsed or retry
-    BackingOff --> GivenUp: 30 s without a connection
+    BackingOff --> GivenUp: 30 s without a connection and no session running
     GivenUp --> Connecting: retry
 ```
 
-What the screens see: `Online` is "Connected" and "Paired"; `Connecting`, `Handshaking`, and `BackingOff` are "Reconnecting"; `GivenUp` is "Disconnected" (screen 07); `NeedsCode` and `Rejected` bring up the pairing screen.
+What the screens see: `Online` is "Connected" and "Paired"; `Connecting`, `Handshaking`, and `BackingOff` are "Reconnecting"; `GivenUp` is "Disconnected" (screen 07) and is only reached when no session is running or paused (during a session `BackingOff` and `Connecting` simply repeat with the capped backoff, ADR-71); `NeedsCode` and `Rejected` bring up the pairing screen.
 
 ### Connect, heartbeat, loss, and reconnection
 
@@ -327,3 +335,61 @@ sequenceDiagram
 - Commands are sent only when online. Otherwise they fail immediately; nothing is queued.
 - Every `state.update` replaces the session and re-synchronizes the local clock that interpolates elapsed time between updates.
 - `session.summary` becomes an event for the summary screen; `history.list` waits for `history.list.result`.
+
+## Crash safety, settings, and single instance (Phase 8)
+
+```mermaid
+sequenceDiagram
+    participant C as CompanionService
+    participant F as active-session.json
+    participant H as History store
+    participant A as App (startup)
+    Note over C,F: Session running or paused
+    C->>F: write (temp file, then replace) before each answer, after changes, every 5 s
+    Note over C: crash, power cut or End task
+    A->>A: named event free? (second instance exits here)
+    A->>C: start (CompanionHost.StartAsync, before listening)
+    C->>F: read
+    alt valid record
+        C->>H: save one interruptedByDisconnection record (skipped if an equal one is already there)
+        C->>F: delete
+        C-->>A: activity: a session was recovered
+    else corrupt file
+        C->>F: delete, log, continue
+    end
+```
+
+- **Files** (all under `%LOCALAPPDATA%\Presenta\` by default, each path overridable by a launch argument or by the test harness): `history.db` (finished sessions), `active-session.json` (the one running or paused session, ADR-67), `settings.json` (the remembered pairing code, off by default, ADR-69), `target.json` (the chosen presentation window, ADR-54). Only `settings.json` can hold the code.
+- **Ownership:** `CompanionService` owns the active-session and settings stores through two small interfaces (`IActiveSessionStore`, `ICompanionSettingsStore`) with in-memory, null and JSON implementations in `Presenta.Server`; the persistence project stays SQLite only. Writes happen inside the service gate and never throw into it.
+- **Single instance:** `App` takes a named event of the user session before it builds anything (ADR-70); the decision is `SingleInstanceGate` in the view-model library, so it is tested without a window.
+- **Window choice:** `TargetSelectionViewModel` chooses the only suggested slide-show window by itself and shows the "not the slide show" warning (ADR-68); it never verifies or presses a key.
+- **Watch:** `RemotePresentaRepository` keeps retrying while its last snapshot is a running or paused session (ADR-71); everything else about reconnection is as in Phase 5.
+
+## Optional AI wording of the recommendation (Phase 10)
+
+```mermaid
+sequenceDiagram
+    participant S as CompanionService
+    participant E as AiRecommendationEnricher
+    participant C as IAiTextClient
+    participant P as Provider (HTTPS)
+    participant W as Watch
+    S->>E: Apply(snapshot) while building a state
+    alt text cached for this situation
+        E-->>S: recommendation with freeText
+    else no text yet
+        E-->>S: recommendation unchanged (deterministic)
+        E->>C: background request (aggregate numbers and codes only)
+        C->>P: POST /chat/completions (key in the header)
+        P-->>C: one short sentence
+        C-->>E: text
+        E->>E: sanitize, cache by situation
+        E-->>S: TextReady
+        S->>W: state.update with freeText
+    end
+```
+
+- **Where it lives:** `Presenta.Ai` (client, prompt, sanitizer, configuration; no references) and `Presenta.Server` (`AiRecommendationEnricher`, called by `CompanionService`). The domain is untouched: the pace, the alerts and the recommendation code never depend on the provider.
+- **Failure behavior:** every failure (switch off, no variables, timeout, 401, 403, 429, 5xx, malformed answer, unusable text, an open circuit breaker, a changed situation) means `freeText` is `null` and the watch shows the wording of the code. The call never blocks a command, a tick or a state.
+- **Data:** the request holds only a fixed instruction and codes and coarse numbers (ADR-74); the key lives only in the client and goes only into the Authorization header (ADR-73).
+- **Watch:** `freeText` replaces the wording of the recommendation code in the alert pill only (ADR-78).
