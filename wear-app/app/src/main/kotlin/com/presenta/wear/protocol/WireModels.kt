@@ -156,6 +156,7 @@ data class AlertPayload(
     val remainingMs: Long,
     val slidesRemaining: Int,
     val slideDeviation: Int,
+    val sequence: Int,
 )
 
 @Serializable
