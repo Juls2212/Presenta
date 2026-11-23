@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Presenta.Domain.Keyboard;
 using Presenta.Protocol;
 using Presenta.Server.Tests.Support;
@@ -10,6 +11,80 @@ namespace Presenta.Server.Tests;
 /// </summary>
 public class KeyTargetingTests
 {
+    [Theory]
+    [InlineData(KeyDeliveryResult.NoTargetSelected)]
+    [InlineData(KeyDeliveryResult.TargetNotFound)]
+    [InlineData(KeyDeliveryResult.TargetAmbiguous)]
+    [InlineData(KeyDeliveryResult.TargetElevated)]
+    [InlineData(KeyDeliveryResult.ActivationFailed)]
+    [InlineData(KeyDeliveryResult.NotConfirmedForeground)]
+    [InlineData(KeyDeliveryResult.SendFailed)]
+    public async Task A_failed_key_reports_its_specific_reason_in_the_activity(KeyDeliveryResult failure)
+    {
+        await using var harness = await ServerHarness.StartAsync();
+        var client = await harness.ConnectAsync();
+        await client.CommandAsync(Msg.Start(slides: 5, durationMs: 60_000));
+        var activities = new List<CompanionActivity>();
+        harness.Service.ActivityOccurred += (_, activity) => activities.Add(activity);
+        harness.Keyboard.Result = failure;
+
+        var result = await client.CommandAsync(Msg.Next());
+
+        Assert.False(result.Payload.Ok);
+        var failed = Assert.Single(activities, a => a.Kind == ActivityKind.KeyFailed);
+        Assert.Equal(failure, failed.KeyResult);
+    }
+
+    /// <summary>Debug builds log how long each key delivery took (RNF 03 measurement); release builds log nothing of the kind.</summary>
+    [Fact]
+    public async Task Each_key_delivery_writes_one_timing_line_in_debug_builds_only()
+    {
+        await using var harness = await ServerHarness.StartAsync();
+        var client = await harness.ConnectAsync();
+        await client.CommandAsync(Msg.Start(slides: 5, durationMs: 60_000));
+
+        Assert.True((await client.CommandAsync(Msg.Next())).Payload.Ok);
+
+        var timing = harness.Logs.Lines.Where(l => l.Contains("PresentaTiming", StringComparison.Ordinal)).ToArray();
+        var diagnosticsEnabled = CompanionService.TimingDiagnosticsEnabled; // a constant per build configuration
+        if (diagnosticsEnabled)
+        {
+            var line = Assert.Single(timing);
+            Assert.Contains("activateAndInjectMs=", line, StringComparison.Ordinal);
+            Assert.Contains("Next", line, StringComparison.Ordinal);
+        }
+        else
+        {
+            Assert.Empty(timing);
+        }
+    }
+
+#if DEBUG
+    [Fact]
+    public async Task The_debug_timing_file_keeps_only_the_timing_lines()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "presenta-timing-" + Guid.NewGuid().ToString("N"), "timing.log");
+        try
+        {
+            using var provider = new TimingFileLoggerProvider(path);
+            var logger = provider.CreateLogger("test");
+            logger.LogInformation("PresentaTiming key=Next activateAndInjectMs=12");
+            logger.LogInformation("something else");
+            logger.LogWarning("PresentaTiming key=Previous activateAndInjectMs=3");
+            await Task.CompletedTask;
+
+            var lines = File.ReadAllLines(path);
+            Assert.Equal(2, lines.Length);
+            Assert.EndsWith("PresentaTiming key=Next activateAndInjectMs=12", lines[0], StringComparison.Ordinal);
+            Assert.EndsWith("activateAndInjectMs=3", lines[1], StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(Path.GetDirectoryName(path)!, recursive: true);
+        }
+    }
+#endif
+
     [Theory]
     [InlineData(TargetState.NoneSelected)]
     [InlineData(TargetState.NotFound)]
