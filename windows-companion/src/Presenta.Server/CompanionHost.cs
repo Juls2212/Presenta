@@ -27,19 +27,23 @@ public sealed class CompanionHost : IAsyncDisposable
     private WebApplication? _app;
     private int _activePort;
     private bool _allowLocalNetwork;
+    private bool _recoveryDone;
 
     public CompanionHost(
         CompanionServerOptions options,
         ISlideKeyboard keyboard,
         IHistoryStore history,
         TimeProvider? time = null,
-        ILoggerFactory? loggerFactory = null)
+        ILoggerFactory? loggerFactory = null,
+        IActiveSessionStore? activeSessions = null,
+        ICompanionSettingsStore? settings = null,
+        AiRecommendationEnricher? ai = null)
     {
         _options = options;
         _allowLocalNetwork = options.AllowLocalNetwork;
         _activePort = options.Port;
         _loggerFactory = loggerFactory ?? Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance;
-        Service = new CompanionService(options, keyboard, history, time, _loggerFactory);
+        Service = new CompanionService(options, keyboard, history, time, _loggerFactory, activeSessions, settings, ai);
     }
 
     public CompanionService Service { get; }
@@ -60,6 +64,13 @@ public sealed class CompanionHost : IAsyncDisposable
         if (_app is not null)
         {
             return;
+        }
+
+        // Once per run, before listening: a session left over from a crash goes to the history (never raises).
+        if (!_recoveryDone)
+        {
+            _recoveryDone = true;
+            await Service.RecoverInterruptedSessionAsync().ConfigureAwait(false);
         }
 
         var address = _allowLocalNetwork ? IPAddress.Any : IPAddress.Loopback;
