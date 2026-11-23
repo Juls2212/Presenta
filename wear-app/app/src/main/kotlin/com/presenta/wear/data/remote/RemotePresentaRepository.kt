@@ -2,12 +2,15 @@ package com.presenta.wear.data.remote
 
 import com.presenta.wear.data.MonotonicClock
 import com.presenta.wear.data.PresentaRepository
+import com.presenta.wear.diagnostics.NoTimingLog
+import com.presenta.wear.diagnostics.TimingLog
 import com.presenta.wear.model.CommandResult
 import com.presenta.wear.model.ConnectionState
 import com.presenta.wear.model.ErrorCode
 import com.presenta.wear.model.HistoryItem
 import com.presenta.wear.model.HistoryResult
 import com.presenta.wear.model.PairingState
+import com.presenta.wear.model.SessionState
 import com.presenta.wear.model.SessionStatus
 import com.presenta.wear.protocol.CommandResultPayload
 import com.presenta.wear.protocol.EmptyPayload
@@ -53,7 +56,10 @@ data class RemoteTimings(
     val commandTimeoutMs: Long = 5_000,
     val backoffInitialMs: Long = 500,
     val backoffMaxMs: Long = 4_000,
-    /** After this long without a connection the automatic retries stop and the screen shows "disconnected". */
+    /**
+     * After this long without a connection, and only while no session is running or paused, the automatic retries stop
+     * and the screen shows "disconnected". During a session the retries never stop (ADR-71).
+     */
     val giveUpAfterMs: Long = 30_000,
 ) {
     /** Longest time between the last frame from the companion and the moment the loss is noticed. */
@@ -80,6 +86,8 @@ class RemotePresentaRepository(
     private val clock: MonotonicClock,
     private val timings: RemoteTimings = RemoteTimings(),
     private val clientName: String = "Wear OS watch",
+    /** Debug-only measurements (RNF 03 and RNF 04). Release builds pass [NoTimingLog]. */
+    private val timing: TimingLog = NoTimingLog,
 ) : PresentaRepository {
 
     private val _connection = MutableStateFlow(ConnectionState.Disconnected)
@@ -123,7 +131,12 @@ class RemotePresentaRepository(
 
     private enum class Phase { Idle, Connecting, Handshaking, Online, BackingOff }
 
-    private class PendingCommand(val result: CompletableDeferred<CommandResult>, val deadline: Long)
+    private class PendingCommand(
+        val result: CompletableDeferred<CommandResult>,
+        val deadline: Long,
+        val type: String,
+        val sentAt: Long,
+    )
 
     private class PendingHistory(val id: String, val result: CompletableDeferred<HistoryResult>, val deadline: Long)
 
@@ -288,6 +301,7 @@ class RemotePresentaRepository(
             is StatePayload -> if (phase == Phase.Online) applyState(payload)
             is CommandResultPayload -> {
                 val waiting = pending.remove(payload.correlationId) ?: return
+                timing.line("command type=${waiting.type} roundTripMs=${now() - waiting.sentAt} ok=${payload.ok}")
                 waiting.result.complete(
                     if (payload.ok) CommandResult.Success else CommandResult.Failure(payload.errorCode?.toModel() ?: ErrorCode.InternalError),
                 )
@@ -339,9 +353,14 @@ class RemotePresentaRepository(
     /** The connection ended or timed out: tell the UI, fail what was waiting, and schedule another attempt. */
     private fun onConnectionLost() {
         if (phase == Phase.Idle || phase == Phase.BackingOff) return
+        val detectedAt = now()
         closeSocket()
         failPending(ErrorCode.InvalidMessage)
         _connection.value = ConnectionState.Reconnecting
+        timing.line(
+            "connection-lost phase=$phase sinceLastFrameMs=${detectedAt - lastFrameAt} " +
+                "reconnectingAfterMs=${now() - detectedAt}",
+        )
         if (phase == Phase.Online) tryingSince = now()
         attempt++
         nextAttemptAt = now() + backoff(attempt)
@@ -367,12 +386,21 @@ class RemotePresentaRepository(
                 }
             }
             Phase.BackingOff -> when {
-                now - tryingSince >= timings.giveUpAfterMs -> enterIdle(ConnectionState.Disconnected, _pairing.value)
+                // While a session is running or paused the watch never gives up (ADR-71): the presenter must not have to
+                // press "Reintentar" in the middle of a talk. The capped backoff keeps the attempts cheap.
+                now - tryingSince >= timings.giveUpAfterMs && !hasLiveSession() ->
+                    enterIdle(ConnectionState.Disconnected, _pairing.value)
                 now >= nextAttemptAt -> startAttempt()
             }
             Phase.Idle -> Unit
         }
         expirePending(now)
+    }
+
+    /** True while the last snapshot we hold is a session that is running or paused (not yet finished). */
+    private fun hasLiveSession(): Boolean {
+        val status = _session.value as? SessionStatus.Active ?: return false
+        return status.snapshot.state == SessionState.Running || status.snapshot.state == SessionState.Paused
     }
 
     private fun onRetry() {
@@ -405,7 +433,7 @@ class RemotePresentaRepository(
             event.result.complete(CommandResult.Failure(ErrorCode.InvalidMessage))
             return
         }
-        pending[id] = PendingCommand(event.result, now() + timings.commandTimeoutMs)
+        pending[id] = PendingCommand(event.result, now() + timings.commandTimeoutMs, event.type, now())
     }
 
     private fun onHistory(event: Event.History) {
