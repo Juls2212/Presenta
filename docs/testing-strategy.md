@@ -13,7 +13,7 @@ The user cannot run the app manually until Phase 5 (ADR-20). Phases 1–4 are ve
 
 ## Phase 2 test suites
 
-Run everything with `dotnet test windows-companion/Presenta.Companion.sln`. Current result: 327 tests pass (126 + 201).
+Run everything with `dotnet test windows-companion/Presenta.Companion.sln`. At the end of Phase 2: 327 tests pass (126 + 201); later totals are in the phase sections below.
 
 | Project | Tests | What it covers |
 |---|---|---|
@@ -69,20 +69,11 @@ Key rules to cover automatically (Phases 2 and 4):
 - A new valid connection replaces the old one.
 - Every session end triggers auto-save and `session.summary`.
 
-## Manual test outline, Phase 5 and later
+## Manual tests
 
-1. Start the companion, note the pairing code.
-2. Start the Wear OS emulator (Large Round), open the app, connect via `10.0.2.2`; if it fails, use `adb reverse tcp:8765 tcp:8765` and `ws://localhost:8765`.
-3. Pair with the code; try a wrong code first.
-4. Configure slides and minutes, then start.
-5. Open a real presentation on the PC; press next and previous and confirm the slide changes within about 2 s.
-6. Correct the counter manually and confirm no key is sent.
-7. Pause and resume with long-press; check the timer.
-8. Finish through swipe-up and confirm; check the summary and the saved record.
-9. Phase 6+: provoke slow pace and low remaining time to see alerts and haptics.
-10. Phase 7+: restart the companion and check the history.
-11. Phase 8+: close the companion mid-session, reconnect, and check state restoration and the grace period.
-12. Physical watch (optional): enable LAN listening, add the firewall rule, connect via the PC LAN IP.
+The manual test steps are in [validation/validation-guide.md](validation/validation-guide.md) (the single list; setup and troubleshooting are in [manual-test-guide.md](manual-test-guide.md)). The earlier outline that stood here was replaced by that guide so that there are not two lists that can disagree.
+
+A physical watch on the LAN is not supported yet (Phase 8), so no manual test uses one.
 
 ## Phase 5 test suites (watch client and cross-stack)
 
@@ -120,3 +111,87 @@ Run from `windows-companion/`: `dotnet build Presenta.Companion.sln -warnaserror
 Watch: `WireContractTest` gained one test (the new codes parse from the shared examples and map to the UI model) and `StringMapperTest` checks the two new Spanish messages.
 
 Run the desktop tests in PowerShell with `$env:PRESENTA_DESKTOP_TESTS = "1"; dotnet test windows-companion/tests/Presenta.Desktop.Tests`.
+
+## Phase 6 test suites (alerts, haptics, screen on, shutdown, dates)
+
+Companion: 574 tests (domain 138, protocol 211, persistence 15, server 87, Windows keyboard 7, view models 60, targeting 56) plus 5 opt-in desktop tests. Watch: 234 tests. Opt-in cross-stack: 6 tests (4 earlier, 2 new).
+
+| Suite | Tests | What it covers |
+|---|---|---|
+| `Presenta.Domain.Tests` (`AlertTimingTableTests`) | +9 | Second-by-second simulation with a fake clock and the default rules: the exact second of every alert for 1 min / 5 slides (16, 42, 61 s), 2 min / 10 slides (14, 84, 121 s) and 15 min / 20 slides (95, 630, 840, 901 s) when standing still; the rushing case (10, 13 and 60 s jumps to the last slide); the 120 s cooldown repeat with new sequence numbers (95, 215, 335 s); no repeat without acknowledgment; sequences start at 1 in every session. These numbers are the ones in `validation/validation-guide.md` rows 43 to 56. |
+| `Presenta.Server.Tests` | +1 | Over a real WebSocket the alert keeps its `sequence` across snapshots and the next alert gets the next number. |
+| `Presenta.Protocol.Tests` | +4 | The `sequence` field: the shared example carries it; two new invalid examples (missing, and zero as a schema-only case). |
+| `Presenta.Companion.ViewModels.Tests` | +8 | Closing during a running or paused session asks first and saves exactly one interrupted record and stops the server; declining changes nothing; closing idle or after the session ended does not ask and saves nothing; interrupting twice saves one record; the watch receives the interrupted summary; the texts come from the `.resx`. |
+| `HapticsCoordinatorTest` (watch) | 15 | Patterns are distinct and short and follow the severity; one pattern per new alert; none for the same alert in later snapshots, for an acknowledgment, for a late snapshot of an acknowledged alert, or after a reconnection; a repeated pace alert (new sequence) plays again; a more severe replacement plays its own pattern; baseline for an alert already active at start; stale alerts skipped; a new session counts from 1; a failed command plays the single short pulse; one log line per event. |
+| `AlertStatesTest` (watch) | 3 | All five alert kinds are a state of Control with Next and Previous enabled and a working "Entendido"; red only for overtime; with the whole app on the fake repository the pace pill follows the snapshot, the acknowledged alert does not come back after later snapshots, and the recording haptics player records exactly one pattern. |
+| `KeepScreenOnTest` (watch) | 2 | The flag follows the enabled value and is cleared when the composable leaves; in the whole app it is set from the start of a session, kept while paused, and cleared at the summary and at Home. |
+| `HistoryDatesTest` (watch) | 8 | "Hoy", "Ayer", "08 Oct"; twelve capitalized months with two-digit days; UTC timestamps converted to the local day; midnight boundaries; the same record moving from Hoy to Ayer to a date; year change; another time zone; dot decimal for pace under a Spanish locale. |
+| `HistoryFlowTest` (watch) | 2 | Rows newest first with the right dates and times; an interrupted record opens a read-only summary that says so. (The full finish, summary, history, read-only, empty flow is in `PresentaFlowTest`.) |
+| `AlertsCrossStackTest` (opt-in) | 2 | The real client and the real server running 100 times faster: a standing-still 15-minute session shows behind, running out, critical, and overtime once each in order with sequences 1 to 4 and the recorded patterns warning, warning, critical, critical; a rushing session shows too fast, an acknowledgment vibrates nothing, and the repeat after the cooldown has sequence 2 and vibrates once. |
+
+`NetworkConfigTest` now expects `INTERNET` and `VIBRATE`. What is not tested: the real vibrator (`AndroidHapticsPlayer`), the real message box, and the feel of any pattern; these are in the manual guide and need a physical watch for the last one.
+
+## Phase 7a test suites (validation kit)
+
+Companion: 576 tests in Debug (575 in Release; the 574 of Phase 6 plus one in `Presenta.Server.Tests` and, in Debug only, one for the debug timing file) and 5 opt-in desktop tests. Watch: 238 tests (234 plus 4). Opt-in cross-stack: 8 tests (6 plus 2). Run everything with `scripts/verify-all.ps1 [-CrossStack] [-Desktop]`; it writes `docs/validation/automated-run-latest.md`. `scripts/check-guide-strings.ps1` checks that every Spanish text quoted in the guides exists in `strings.xml` or `UiStrings.resx`.
+
+| Suite | Tests | What it covers |
+|---|---|---|
+| `KeyTargetingTests` | +1 (+1 in Debug) | Each key delivery writes one `PresentaTiming` line in Debug builds and none in Release builds; the debug timing file keeps only timing lines. |
+| `TimingDiagnosticsTest` (watch) | 4 | A command logs its round trip in milliseconds on virtual time; a silent server logs the loss after the last frame (3.0 to 3.5 s) with the production constants; the silent log records nothing; release builds get the silent log. |
+| `TimingCrossStackTest` (opt-in) | 2 | 100 slide commands against the real server over loopback (median, 95th percentile, bounds 250 ms and 1000 ms, printed as `TIMING` lines); the client declares the loss within 5 s after the host is killed and keeps the session on screen. |
+
+Measured on the development computer (loopback, host prints keys): median 0.5 ms, 95th percentile 0.8 ms, loss declared 6 to 7 ms after the host was killed (`sinceLastFrameMs` 4 to 9 ms). These do not include the real key injection, the slideshow repaint, or a real network; the manual rows `27`, `28` and `42` of the validation guide measure those.
+
+## Phase 7b-1 test suites (real PowerPoint key delivery)
+
+Companion: 617 tests in Debug (576 before; targeting 77, server 96, view models 73) and 8 opt-in desktop tests (5 before). Watch (238) and cross-stack (8) unchanged.
+
+| Suite | Tests | What it covers |
+|---|---|---|
+| `Presenta.Targeting.Tests` (`ForegroundRuleTests`) | +15 | The foreground rule: owned window accepted (also through two levels), owner of the chosen window refused, unrelated same-program window refused, another program refused even with an owner link, owner chains that leave the program, a thief after the confirmation stops the key, an owned window after the confirmation still gets it; the saved identity keeps the class and never falls back to another class. |
+| `Presenta.Targeting.Tests` (`DiagnosticReportTests`) | +6 | The report content (system, elevation, target, owner chain, windows of the same program, foreground before and after, each step with its Win32 result, decision), refused and unconfirmed activations, no target, no key sent, no pairing code. |
+| `Presenta.Server.Tests` | +7 | Each failing delivery result reaches the activity with its typed reason. |
+| `Presenta.Companion.ViewModels.Tests` | +13 | "Copiar diagnóstico" copies the report, confirms, sends no key, and reports clipboard failures; slide-show entries and other PowerPoint windows are labelled; every failure reason has a distinct Spanish text; the activity line shows the reason. |
+| `Presenta.Desktop.Tests` | +3 (opt-in) | A program that hands the focus to its owned window (failed before the rule, passes after); a top-most helper window; a full-screen helper window. All 8 passed locally. Skipped unless `PRESENTA_DESKTOP_TESTS=1`. |
+
+Not reproduced: an unusual foreground program or missing recent input making `AttachThreadInput` or `SetForegroundWindow` fail (hypothesis B). Not run: the real PowerPoint.
+
+## Phase 8 test suites (robustness and usability)
+
+Companion: 712 tests in Debug (617 plus 95) and 11 opt-in desktop tests (8 plus 3). Watch: 250 tests (238 plus 12). Opt-in cross-stack: 11 tests (8 plus 3). Run everything with `scripts/verify-all.ps1 -CrossStack [-Desktop]`.
+
+| Suite | Tests | What it covers |
+|---|---|---|
+| `Presenta.Server.Tests` (`ActiveSessionTests`) | +34 | The active session is written on start and on each command, at least every 5 seconds, paused or running, and removed when the session ends by finishing, the grace period or closing the window; a store or history that fails never disturbs the session; recovery gives exactly one interrupted record with the last written time, never resumes, survives a crash during recovery (file left behind, then found already in the history), a failing history and a corrupt file, and never replaces a live session; the real file store round-trips, replaces atomically, leaves no temporary file and rejects 15 kinds of corrupt, partial or out-of-range content; recovery with the real file and the real SQLite database. |
+| `Presenta.Server.Tests` (`RememberedPairingCodeTests`) | +30 | Off by default; on stores the code and a restart keeps it; regenerating replaces it only when remembered; off removes it; unusable stored codes are replaced; the fixed test code wins; the remembered code pairs a real WebSocket after a restart and the old code is refused after regenerating; the lockout still applies; the code is never logged; a settings store that fails only logs; the file store round-trips, removes the code when off, and falls back on corrupt content. |
+| `Presenta.Companion.ViewModels.Tests` (`AutomaticTargetTests`) | +21 | Automatic choice (one slide show), no choice (several, none), a replaced unresolvable choice, a resolvable choice never replaced, the hand choice ending the note, choosing and the timer never verify or press keys, refresh keeps the choice, a later-started presentation is picked up by the timer without rebuilding an unchanged list, and the warning appears only for the PowerPoint window that is not the slide show. |
+| `Presenta.Companion.ViewModels.Tests` (`Phase8WindowTests`) | +10 | The recovery activity line (once), the remember switch (default off, stores, regenerates, clears, initial state), the new Spanish captions, the single-instance gate with a fake lock (message and nothing started), the real named lock (one owner per name, freed on dispose, different names independent), the launch arguments, and the real files across two runs. |
+| `SessionReconnectionTest` (watch) | 12 | On virtual time: a 10-minute outage during a running session never reaches the give-up state; the capped backoff continues past two minutes; a paused session also keeps retrying; the screen keeps showing the session and its clock as reconnecting; commands fail at once and are never queued or replayed; the stored code is re-sent and the state resynchronized after minutes; a restarted companion without the session clears it; a rejected code returns to pairing without losing the displayed session and a new code restores it; idle behavior is unchanged (give up after 30 s, "Reintentar" reconnects, also after the session ended and for a never-connected watch). |
+| `RememberedCodeCrossStackTest` (opt-in) | 3 | The real watch client against the real server process: a remembered code keeps the watch paired across a companion restart and regenerating replaces it (the code is never printed); without remembering the old code is refused; a companion killed in the middle of a session is recovered exactly once, and a further restart adds nothing. |
+| `SingleInstanceProcessTests` (opt-in desktop) | 3 | The real named event across processes: taken while another process holds it, free after it exits or is killed, and a helper finds it taken by this process. All 3 passed locally. |
+
+Failing first: with the give-up guard removed, 8 of the 12 `SessionReconnectionTest` tests fail; with it restored all pass.
+
+One existing test (`Closing_after_the_session_already_ended_does_not_ask_and_does_not_duplicate_the_record`) failed once in about 20 full runs under load because it read the status before the service had published it; it now waits for that. A single failure of one test in `Presenta.Server.Tests` was also seen once and not reproduced in 25 further runs; its name was not captured.
+
+## Phase 10 test suites (optional AI)
+
+Companion: 906 tests in Debug (712 plus 194) and 11 opt-in desktop tests. Watch: 269 tests (250 plus 19). Opt-in cross-stack: 13 tests (11 plus 2). No test touches the network or needs a key: the provider is a fake client or an in-process server on loopback.
+
+| Suite | Tests | What it covers |
+|---|---|---|
+| `Presenta.Ai.Tests` (new project) `SanitizerTests`, `PromptTests` | +45 | Accepted and rejected texts (quotes, markdown, bullets, line breaks, links, control characters, emojis, invisible characters, empty, too long, cut at a word, too few words after the cut, never over the limit), the pinned system prompt and user line, the coarse buckets and shared keys, the exact request body, the canned client. |
+| `ClientTests`, `ConfigurationTests` | +60 | Against an in-process loopback server: success and the request shape (path, Bearer header, content type, golden body), a trailing slash, the key only in the header, no name or title or file name in the body, every status (401, 403, 429 with and without retry-after and with a date, 5xx, 4xx, a redirect not followed), malformed answers (11 kinds), too large and not UTF-8, a slow answer beyond the timeout, a closed port, the caller's cancellation; https enforcement and invalid addresses; the three variables. |
+| `EnricherTests` | +30 | Off by default; not available without valid settings; no call without an alert; the text is requested in the background and then filled; cache by situation and coarse numbers; a stale text is dropped and comes back for the same situation at no cost; rate limit; per-session cap and its reset; circuit breaker (five failure kinds), trial, reopening at the first failed trial, reset by a success; refused key and its recovery; 429 backoff doubling up to the cap and with retry-after; timeout on fake time; unusable texts count as failures; a throwing client; `Apply` returns at once. |
+| `SecretsTests` | +13 | The key never in a log (6 statuses, hostile echo, malformed, slow, unreachable), never printed by options or configuration, never a public member, an activity line cannot hold text, the window diagnostic report never has it even when it is in the environment. |
+| `Presenta.Server.Tests` (`AiRecommendationTests`) | +9 | Through the real server and a real WebSocket: the text reaches the watch in a new state, also on a late connection; off means no call; a provider that never answers blocks neither commands nor ticks and the text arrives when it does; six failure kinds leave the deterministic recommendation; an unusable text never arrives; acknowledging the alert removes it; the counter restarts with a presentation; a service without an enricher behaves as before. |
+| `Presenta.Companion.ViewModels.Tests` (`AiSectionViewModelTests`) | +11 | The switch (off by default, disabled with the reason when unavailable, on and off), the status mapping for every state, the pause ending with the timer, the dispatcher, strings from the resource file, the privacy note. |
+| `Presenta.Protocol.Tests` (`FreeTextTests` and the new examples) | +16 | The new valid example and two invalid ones; text and null round trip; the schema limit of 80; types. |
+| `AiTipLayoutTest` (watch) | 6 | The tip replaces the wording in the alert pill (4 setups), the same accessibility description, the fallback for every code, a 41-character tip without a layout defect and an 80-character tip inside the circle at Large Round and Small Round, font scales 1.0 and 1.3, and no change outside an alert. |
+| `RecommendationTextTest`, `FreeTextWireTest`, `RecommendationTipStateTest` (watch) | 13 | The watch's own guard, parsing with and without the text against the shared examples, and the Control state preferring a usable text. |
+| `AiTextCrossStackTest` (opt-in) | 2 | The real client against the real server with `--fake-ai`: the text appears with an alert and the Control state prefers it; without the flag no text ever arrives. |
+
+The layout test found a real problem on the way: with a two-line pill Next and Previous lost up to 7 dp of touch size, so the pill with a text uses a smaller font and tighter spacing (ADR-78).
+
+**Not tested:** any real provider. The shape of the request follows the common chat-completions convention and is proven against a local stand-in only.
