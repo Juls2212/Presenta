@@ -8,7 +8,7 @@ import org.junit.Test
 import org.w3c.dom.Document
 import org.w3c.dom.Element
 
-/** Cleartext traffic is allowed for exactly three hosts, and the INTERNET permission is declared. */
+/** Cleartext traffic is allowed for exactly three hosts, and the INTERNET and VIBRATE permissions are declared. */
 class NetworkConfigTest {
     private val main = File("src/main")
 
@@ -55,7 +55,8 @@ class NetworkConfigTest {
         val permissions = (0 until manifest.getElementsByTagName("uses-permission").length).map {
             (manifest.getElementsByTagName("uses-permission").item(it) as Element).getAttributeNS(androidNs, "name")
         }
-        assertEquals(listOf("android.permission.INTERNET"), permissions)
+        // INTERNET for the connection to the companion and VIBRATE for the alert haptics; nothing else is requested.
+        assertEquals(listOf("android.permission.INTERNET", "android.permission.VIBRATE"), permissions)
 
         val application = manifest.getElementsByTagName("application").item(0) as Element
         assertEquals("@xml/network_security_config", application.getAttributeNS(androidNs, "networkSecurityConfig"))
