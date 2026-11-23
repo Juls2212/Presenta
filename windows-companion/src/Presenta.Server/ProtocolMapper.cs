@@ -42,7 +42,8 @@ internal static class ProtocolMapper
         alert.RaisedAtElapsedMs,
         alert.RemainingMs,
         alert.SlidesRemaining,
-        alert.SlideDeviation);
+        alert.SlideDeviation,
+        alert.Sequence);
 
     public static Wire.RecommendationPayload ToPayload(Recommendation recommendation) => new(
         Convert<RecommendationCode, Wire.RecommendationCode>(recommendation.Code),
