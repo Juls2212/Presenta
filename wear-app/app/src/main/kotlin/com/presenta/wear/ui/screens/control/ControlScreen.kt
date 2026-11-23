@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableFloatStateOf
@@ -91,6 +92,8 @@ data class ControlUiState(
     val overlay: ControlOverlay = ControlOverlay.None,
     val selectorSlide: Int = currentSlide,
     val message: ErrorCode? = null,
+    /** The AI's short tip for the current alert, already cleaned; null means "use the wording of [recommendation]". */
+    val recommendationText: String? = null,
 ) {
     val overtime: Boolean get() = remainingMs < 0
 }
@@ -126,13 +129,22 @@ fun ControlScreen(state: ControlUiState, actions: ControlActions) {
     }
 }
 
+/** Which accent family Control uses. Red ([Critical]) is reserved for overtime; every other alert is amber. */
+enum class ControlAccent { Normal, Alert, Critical }
+
+fun ControlUiState.accent(): ControlAccent = when {
+    alert?.kind == AlertKind.Overtime || (overtime && alert == null) -> ControlAccent.Critical
+    alert != null -> ControlAccent.Alert
+    else -> ControlAccent.Normal
+}
+
 @Composable
 private fun accentFor(state: ControlUiState): Color {
     val colors = PresentaTheme.colors
-    return when {
-        state.alert?.kind == AlertKind.Overtime || (state.overtime && state.alert == null) -> colors.critical
-        state.alert != null -> colors.amber
-        else -> colors.cyan
+    return when (state.accent()) {
+        ControlAccent.Critical -> colors.critical
+        ControlAccent.Alert -> colors.amber
+        ControlAccent.Normal -> colors.cyan
     }
 }
 
@@ -338,6 +350,9 @@ private fun AlertContent(state: ControlUiState, actions: ControlActions, accent:
     val headline = mapper.alertHeadline(alert)
     val supporting = mapper.alertSupporting(alert, state.remainingMs, state.slidesRemaining)
     val cd = stringResource(R.string.alert_cd_prefix, headline, supporting)
+    // The AI's tip replaces the wording of the code in the pill and may take two lines; to keep Next and Previous at their
+    // full touch size the tip uses a slightly smaller text and tighter spacing than the single-line wording.
+    val tip = state.recommendationText.takeIf { state.recommendation != null }
     Column(
         Modifier.fillMaxSize().padding(top = if (compact) 18.dp else 12.dp, bottom = if (compact) 20.dp else 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -348,26 +363,31 @@ private fun AlertContent(state: ControlUiState, actions: ControlActions, accent:
         ) {
             if (!compact) {
                 Box(
-                    Modifier.size(24.dp).clip(CircleShape).border(1.5.dp, accent.copy(alpha = 0.8f), CircleShape),
+                    Modifier.size(if (tip != null) 18.dp else 24.dp).clip(CircleShape).border(1.5.dp, accent.copy(alpha = 0.8f), CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
-                    PresentaIcon(IconKind.Warning, accent, size = 14.dp)
+                    PresentaIcon(IconKind.Warning, accent, size = if (tip != null) 11.dp else 14.dp)
                 }
             }
             ShrinkText(headline, PresentaText.bold(if (compact) 19.sp else 22.sp), colors.warmWhite, maxWidth = if (compact) 106.dp else 150.dp)
             PresentaText(supporting, PresentaText.regular(if (compact) 9.sp else 11.sp), colors.textMuted, maxLines = 1)
         }
-        Gap(2.dp)
+        Gap(if (tip != null) 0.dp else 2.dp)
         state.recommendation?.let { code ->
             val tint = if (code == RecommendationCode.Overtime) colors.critical else accent
+            // The tip replaces the wording of the code here (and only here): at most two lines, then an ellipsis.
             StatusPill(
-                mapper.recommendation(code),
+                tip ?: mapper.recommendation(code),
                 tint,
+                modifier = if (tip != null) Modifier.widthIn(max = if (compact) 150.dp else 176.dp) else Modifier,
                 icon = IconKind.DoubleChevron,
                 height = if (compact) 20.dp else 22.dp,
-                textSize = if (compact) 11.sp else 12.sp,
+                textSize = if (tip != null) (if (compact) 10.sp else 11.sp) else (if (compact) 11.sp else 12.sp),
+                maxLines = if (tip != null) 2 else 1,
+                contentDescription = tip,
+                multilinePadding = if (compact) 1.dp else 0.dp,
             )
-            Gap(2.dp)
+            Gap(if (tip != null) 1.dp else 2.dp)
         }
         PresentaButton(
             onClick = actions.onAcknowledge,
