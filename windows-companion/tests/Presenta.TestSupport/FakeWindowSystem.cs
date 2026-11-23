@@ -147,31 +147,37 @@ public sealed class FakeWindowSystem : IWindowSystem
         }
     }
 
-    public bool TryBringToForeground(long handle)
+    /// <summary>Owner of each window (handle to owner handle), for owner and owned relationships.</summary>
+    public Dictionary<long, long> Owners { get; } = new();
+
+    public bool TryBringToForeground(long handle) => BringToForeground(handle).SetForegroundSucceeded;
+
+    public ForegroundAttempt BringToForeground(long handle)
     {
         lock (_gate)
         {
             _calls.Add("activate " + handle);
+            var attempt = new ForegroundAttempt { ForegroundBefore = _foreground, ForegroundThread = 11, CurrentThread = 22, Attached = true, Detached = true };
             switch (Behavior)
             {
                 case ForegroundBehavior.Refuse:
-                    return false;
+                    return attempt with { SetForegroundSucceeded = false, SetForegroundError = 5, BringToTopSucceeded = false };
                 case ForegroundBehavior.AcceptButStayBehind:
-                    return true;
+                    return attempt with { SetForegroundSucceeded = true, BringToTopSucceeded = true };
                 default:
                     _foreground = StealForegroundAfterActivation ?? handle;
-                    return true;
+                    return attempt with { SetForegroundSucceeded = true, BringToTopSucceeded = true };
             }
         }
     }
 
-    public bool WaitUntilForeground(long handle, TimeSpan timeout)
+    public bool WaitUntilForeground(long handle, TimeSpan timeout, Func<long, bool>? alsoAccept = null)
     {
         bool confirmed;
         lock (_gate)
         {
             _calls.Add("wait " + handle);
-            confirmed = _foreground == handle;
+            confirmed = _foreground == handle || (alsoAccept is not null && _foreground != 0 && alsoAccept(_foreground));
         }
 
         if (confirmed)
@@ -180,6 +186,32 @@ public sealed class FakeWindowSystem : IWindowSystem
         }
 
         return confirmed;
+    }
+
+    public long GetOwner(long handle)
+    {
+        lock (_gate)
+        {
+            return Owners.TryGetValue(handle, out var owner) ? owner : 0;
+        }
+    }
+
+    public WindowDetails? GetDetails(long handle)
+    {
+        var info = GetWindow(handle);
+        if (info is null)
+        {
+            return null;
+        }
+
+        var owner = GetOwner(handle);
+        var root = owner;
+        for (var depth = 0; depth < 8 && root != 0 && GetOwner(root) != 0; depth++)
+        {
+            root = GetOwner(root);
+        }
+
+        return new WindowDetails(info, false, false, owner, root);
     }
 
     public bool SendArrow(SlideDirection direction)
