@@ -9,6 +9,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Presenta.Ai\Presenta.Ai.csproj" />
     <ProjectReference Include="..\Presenta.Domain\Presenta.Domain.csproj" />
     <ProjectReference Include="..\Presenta.Protocol\Presenta.Protocol.csproj" />
   </ItemGroup>
