@@ -37,6 +37,9 @@ public sealed record CompanionServerOptions
     /// <summary>While a watch is connected, a <c>state.update</c> is sent at least this often.</summary>
     public TimeSpan RefreshInterval { get; init; } = TimeSpan.FromSeconds(5);
 
+    /// <summary>While a session is running or paused it is written to disk at least this often (ADR-67).</summary>
+    public TimeSpan ActiveSessionSaveInterval { get; init; } = TimeSpan.FromSeconds(5);
+
     /// <summary>Records returned by <c>history.list</c> when the watch gives no limit.</summary>
     public int DefaultHistoryLimit { get; init; } = 50;
 
