@@ -45,8 +45,9 @@ public sealed class WindowSlideKeyboard : ISlideKeyboard
                 return KeyDeliveryResult.NotConfirmedForeground;
         }
 
-        // The last look before the key: the user may have clicked elsewhere since the confirmation.
-        if (_windows.GetForegroundWindow() != activation.Window!.Handle)
+        // The last look before the key: the user may have clicked elsewhere since the confirmation. The foreground window
+        // must still be the chosen window or a window it owns (the same rule as the confirmation).
+        if (!_target.IsForegroundAccepted(activation.Window!))
         {
             return KeyDeliveryResult.NotConfirmedForeground;
         }
