@@ -18,6 +18,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <!-- Header: title, server state, start/stop -->
@@ -72,6 +73,9 @@
                         <TextBlock Text="{Binding Labels.PairingHint}" Style="{StaticResource Hint}" Margin="0,0,0,16" />
                         <Button Content="{Binding Labels.PairingRegenerate}" Command="{Binding RegenerateCodeCommand}"
                                 Style="{StaticResource SecondaryPillButton}" HorizontalAlignment="Left" />
+                        <CheckBox Style="{StaticResource Switch}" Content="{Binding Labels.RememberCodeToggle}" Margin="0,16,0,0"
+                                  IsChecked="{Binding RememberPairingCode, Mode=TwoWay}" />
+                        <TextBlock Text="{Binding Labels.RememberCodeHint}" Style="{StaticResource Hint}" Margin="56,2,0,0" />
                     </StackPanel>
                 </Border>
 
@@ -127,7 +131,9 @@
                         <Button Content="{Binding DataContext.Labels.TargetRefresh, RelativeSource={RelativeSource AncestorType=Window}}"
                                 Command="{Binding RefreshCommand}" Style="{StaticResource SecondaryPillButton}" Margin="0,0,10,0" />
                         <Button Content="{Binding DataContext.Labels.TargetVerify, RelativeSource={RelativeSource AncestorType=Window}}"
-                                Command="{Binding VerifyCommand}" Style="{StaticResource PillButton}" />
+                                Command="{Binding VerifyCommand}" Style="{StaticResource PillButton}" Margin="0,0,10,0" />
+                        <Button Content="{Binding DataContext.Labels.TargetDiagnostic, RelativeSource={RelativeSource AncestorType=Window}}"
+                                Command="{Binding CopyDiagnosticCommand}" Style="{StaticResource SecondaryPillButton}" />
                     </StackPanel>
 
                     <TextBlock Text="{Binding StatusText}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
@@ -146,11 +152,43 @@
                             </Style>
                         </TextBlock.Style>
                     </TextBlock>
+                    <TextBlock Text="{Binding NotSlideShowWarning}" Foreground="{StaticResource AmberBrush}" FontSize="13"
+                               TextWrapping="Wrap" Margin="0,8,0,0" AutomationProperties.LiveSetting="Polite"
+                               Visibility="{Binding HasNotSlideShowWarning, Converter={StaticResource BoolToVisibility}}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Optional AI wording of the recommendation -->
+            <Border Grid.Row="3" Style="{StaticResource Card}"
+                    Visibility="{Binding HasAi, Converter={StaticResource BoolToVisibility}}">
+                <StackPanel DataContext="{Binding Ai}">
+                    <TextBlock Text="{Binding Title}" Style="{StaticResource Heading}" />
+                    <CheckBox Style="{StaticResource Switch}" Content="{Binding ToggleLabel}"
+                              IsEnabled="{Binding CanToggle}" IsChecked="{Binding Enabled, Mode=TwoWay}" />
+                    <TextBlock Text="{Binding StatusText}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
+                               Margin="0,8,0,0" AutomationProperties.LiveSetting="Polite">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="{StaticResource WarmWhiteBrush}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsGood}" Value="True">
+                                        <Setter Property="Foreground" Value="{StaticResource CyanBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsProblem}" Value="True">
+                                        <Setter Property="Foreground" Value="{StaticResource AmberBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <TextBlock Text="{Binding PrivacyNote}" Style="{StaticResource Hint}" Margin="0,6,0,0" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding LastTextLine}" Style="{StaticResource Body}" FontSize="14" Margin="0,6,0,0"
+                               TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
 
             <!-- Watch, session and recent activity -->
-            <Grid Grid.Row="3">
+            <Grid Grid.Row="4">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" MinWidth="220" />
                     <ColumnDefinition Width="16" />
