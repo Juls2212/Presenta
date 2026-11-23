@@ -167,9 +167,93 @@ public sealed class PresentationTargetService
 
     /// <summary>
     /// Restores the target if it is minimized, then brings it to the foreground unless it already is, and confirms that it
-    /// really is the foreground window (a few short, bounded attempts). Presses no key. Focus is not given back afterwards.
+    /// (or a window it owns, see <see cref="GetForegroundRelation"/>) really is the foreground window (a few short, bounded
+    /// attempts). Presses no key. Focus is not given back afterwards. When <paramref name="trace"/> is given, every step is
+    /// recorded in it; the activation itself is the same with or without a trace.
     /// </summary>
-    public ActivationResult Activate()
+    public ActivationResult Activate(ActivationTrace? trace = null)
+    {
+        var result = ActivateCore(trace);
+        if (trace is not null)
+        {
+            trace.Outcome = result.Outcome;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// How the window <paramref name="foreground"/> relates to <paramref name="target"/>. Only <see cref="ForegroundRelation.Target"/>
+    /// and <see cref="ForegroundRelation.OwnedByTarget"/> are accepted as "the chosen window is in front": the second one
+    /// means a window of the same program that the chosen window owns (for example a slide-show window owned by the main
+    /// frame, which the program activates by itself). A window of any other program, an unrelated window of the same
+    /// program, and the owner of the chosen window are all refused.
+    /// </summary>
+    public ForegroundRelation GetForegroundRelation(WindowInfo target, long foreground)
+    {
+        if (foreground == 0)
+        {
+            return ForegroundRelation.Unknown;
+        }
+
+        if (foreground == target.Handle)
+        {
+            return ForegroundRelation.Target;
+        }
+
+        var info = _windows.GetWindow(foreground);
+        if (info is null)
+        {
+            return ForegroundRelation.Unknown;
+        }
+
+        if (info.ProcessId != target.ProcessId)
+        {
+            return ForegroundRelation.OtherProcess;
+        }
+
+        if (OwnerChainReaches(foreground, target))
+        {
+            return ForegroundRelation.OwnedByTarget;
+        }
+
+        return OwnerChainReaches(target.Handle, info) ? ForegroundRelation.OwnerOfTarget : ForegroundRelation.SameProcessOther;
+    }
+
+    /// <summary>True when the foreground window right now is the target or a window the target owns (same program).</summary>
+    public bool IsForegroundAccepted(WindowInfo target) => IsAccepted(GetForegroundRelation(target, _windows.GetForegroundWindow()));
+
+    private static bool IsAccepted(ForegroundRelation relation) => relation is ForegroundRelation.Target or ForegroundRelation.OwnedByTarget;
+
+    // Follows the owners of `start` and reports whether the chain reaches `wanted`, without ever leaving wanted's program.
+    private bool OwnerChainReaches(long start, WindowInfo wanted)
+    {
+        var current = start;
+        for (var hop = 0; hop < 8; hop++)
+        {
+            var owner = _windows.GetOwner(current);
+            if (owner == 0)
+            {
+                return false;
+            }
+
+            if (owner == wanted.Handle)
+            {
+                return true;
+            }
+
+            if (_windows.GetWindow(owner) is not { } ownerInfo || ownerInfo.ProcessId != wanted.ProcessId)
+            {
+                return false;
+            }
+
+            current = owner;
+        }
+
+        return false;
+    }
+
+    private ActivationResult ActivateCore(ActivationTrace? trace)
     {
         var resolution = Resolve();
         switch (resolution.State)
@@ -185,12 +269,29 @@ public sealed class PresentationTargetService
         }
 
         var window = resolution.Window!;
-        if (resolution.State == TargetState.Minimized)
+        if (trace is not null)
         {
-            _windows.Restore(window.Handle);
+            trace.Target = _windows.GetDetails(window.Handle);
+            trace.ForegroundBefore = _windows.GetDetails(_windows.GetForegroundWindow());
         }
 
-        if (_windows.GetForegroundWindow() == window.Handle)
+        if (resolution.State == TargetState.Minimized)
+        {
+            var restored = _windows.Restore(window.Handle);
+            if (trace is not null)
+            {
+                trace.RestoreAttempted = true;
+                trace.RestoreResult = restored;
+            }
+        }
+
+        var before = GetForegroundRelation(window, _windows.GetForegroundWindow());
+        if (trace is not null)
+        {
+            trace.RelationBefore = before;
+        }
+
+        if (IsAccepted(before))
         {
             return new ActivationResult(ActivationOutcome.InForeground, window);
         }
@@ -198,13 +299,20 @@ public sealed class PresentationTargetService
         var accepted = false;
         for (var attempt = 0; attempt < _options.Attempts; attempt++)
         {
-            if (!_windows.TryBringToForeground(window.Handle))
+            var step = _windows.BringToForeground(window.Handle);
+            if (!step.SetForegroundSucceeded)
             {
+                RecordAttempt(trace, window, step, confirmed: false);
                 continue;
             }
 
             accepted = true;
-            if (_windows.WaitUntilForeground(window.Handle, _options.ConfirmTimeout))
+            var confirmed = _windows.WaitUntilForeground(
+                window.Handle,
+                _options.ConfirmTimeout,
+                candidate => IsAccepted(GetForegroundRelation(window, candidate)));
+            RecordAttempt(trace, window, step, confirmed);
+            if (confirmed)
             {
                 return new ActivationResult(ActivationOutcome.InForeground, window);
             }
@@ -212,6 +320,39 @@ public sealed class PresentationTargetService
 
         return new ActivationResult(accepted ? ActivationOutcome.NotConfirmedForeground : ActivationOutcome.ActivationFailed, window);
     }
+
+    private void RecordAttempt(ActivationTrace? trace, WindowInfo window, ForegroundAttempt step, bool confirmed)
+    {
+        var needsAfter = trace is not null;
+#if DEBUG
+        needsAfter = needsAfter || Diagnostics is not null;
+#endif
+        if (!needsAfter)
+        {
+            return;
+        }
+
+        var foregroundAfter = _windows.GetForegroundWindow();
+        var relation = GetForegroundRelation(window, foregroundAfter);
+        trace?.Attempts.Add(new ActivationAttemptTrace(step, confirmed, _windows.GetDetails(foregroundAfter), relation));
+#if DEBUG
+        Diagnostics?.Invoke(
+            $"activation attempt: attach={step.Attached}/{step.AttachError} setForeground={step.SetForegroundSucceeded}/{step.SetForegroundError} "
+            + $"bringToTop={step.BringToTopSucceeded}/{step.BringToTopError} detach={step.Detached}/{step.DetachError} "
+            + $"confirmed={confirmed} foregroundAfter=0x{foregroundAfter:X} relation={relation}");
+#endif
+    }
+
+#if DEBUG
+    /// <summary>Debug builds only: receives one line per activation attempt with the Win32 error codes. Never contains the pairing code.</summary>
+    public Action<string>? Diagnostics { get; set; }
+#endif
+
+    /// <summary>
+    /// Runs the same activation as a real send, without pressing any key, and returns a plain-text report of every step
+    /// (see <see cref="TargetDiagnosticReport"/>).
+    /// </summary>
+    public string CreateDiagnosticReport(TimeProvider? time = null) => TargetDiagnosticReport.Create(this, _windows, time ?? TimeProvider.System);
 
     private TargetResolution Classify(WindowInfo window)
     {
