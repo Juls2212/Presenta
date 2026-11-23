@@ -113,7 +113,7 @@ Phase 4 built the Windows companion: server, pairing, keyboard interface, SQLite
 
 Phase 5 added the watch's real repository (WebSocket client, protocol v1, DataStore, pairing screen) and the opt-in cross-stack test. The watch suite has 203 tests (JVM, Robolectric, a scripted companion on virtual time, MockWebServer) and the C# side still has 446. `:app:crossStackTest` (4 tests) runs the real Kotlin client against the real C# server through `Presenta.DevHost`, which prints keys instead of pressing them. **No emulator, device, or real key press was involved in any automated check.**
 
-| Code | Proven by tests | Awaits your manual run (`docs/manual-test-guide.md`) |
+| Code | Proven by tests | Awaits your manual run (`docs/validation/validation-guide.md`) |
 |---|---|---|
 | RF 01 | The Kotlin client pairs with the real server over a real socket (loopback) and reconnects after a listener restart. | The emulator path `10.0.2.2` and the firewall. A physical watch on a LAN address is not supported yet (ADR-46). |
 | RF 02 | Connected, reconnecting, and disconnected states follow the connection; the pairing screen appears on rejection. | How the states look and feel on the emulator. |
@@ -139,9 +139,65 @@ The first manual run showed the watch counter moving while PowerPoint did not: k
 
 | Code | Proven by tests | Awaits your manual run |
 |---|---|---|
-| RF 05, RF 06 | With another window in front, Next and Previous reach only the chosen window: activation, confirmation, then exactly one Right or Left key (faked window system, 56 targeting tests; server tests over a real WebSocket); on this machine the opt-in desktop test did the same with real windows in separate processes (5 of 5). No key is sent when the window cannot be confirmed in front, is missing, ambiguous, or elevated. The counter moves only after delivery. | A real slideshow in PowerPoint (windowed and full screen), steps 30 to 42 of `manual-test-guide.md`. |
+| RF 05, RF 06 | With another window in front, Next and Previous reach only the chosen window: activation, confirmation, then exactly one Right or Left key (faked window system, 56 targeting tests; server tests over a real WebSocket); on this machine the opt-in desktop test did the same with real windows in separate processes (5 of 5). No key is sent when the window cannot be confirmed in front, is missing, ambiguous, or elevated. The counter moves only after delivery. | A real slideshow in PowerPoint (windowed and full screen), rows 30 to 42 of `validation/validation-guide.md`. |
 | RF 15 | Two new error codes (`targetWindowUnavailable`, `keyDeliveryFailed`) with Spanish messages on the watch; a failed key leaves the counter unchanged and the session running; `session.start` is refused with a clear message when keys are on and no window is usable. | How the messages read on the watch. |
-| RNF 03 | Activation is skipped when the target is already in front; retries are bounded at under a second. **Latency is not measured.** | The stopwatch measurement, step 42. |
+| RNF 03 | Activation is skipped when the target is already in front; retries are bounded at under a second. **Latency is not measured.** | The measurement, row 42 (the timing logs are explained in section 4 of the validation guide). |
 | RNF 05 | Builds and runs on Windows 11. The window code uses only documented Win32 calls that exist in Windows 10. | Windows 10 not tested. |
 
-Limits that tests cannot remove: Windows foreground rules may still refuse an activation (then nothing is sent and the error is shown); an elevated target is blocked unless the companion is elevated too; PowerPoint exclusive full-screen modes of other programs, several monitors, and browsers for Google Slides or Canva (identified by title only) were not exercised.
+Limits that tests cannot remove (Phase 5.1): Windows foreground rules may still refuse an activation (then nothing is sent and the error is shown); an elevated target is blocked unless the companion is elevated too; PowerPoint exclusive full-screen modes of other programs, several monitors, and browsers for Google Slides or Canva (identified by title only) were not exercised.
+
+## Phase 6 status: alerts, haptics, screen on, safe shutdown, history dates
+
+Counts: companion 574 tests (plus 5 opt-in desktop tests), watch 234, opt-in cross-stack 6.
+
+| Code | Proven by tests | Awaits your manual run |
+|---|---|---|
+| RF 10 | Every alert kind (`timeRunningOut`, `timeCritical`, `overtime`, `behindSchedule`, `tooFast`) is a state of Control with Next and Previous enabled and an "Entendido" that acknowledges; red is used for overtime only; an acknowledged alert does not come back with later snapshots. The exact second of each alert for 1 min / 5 slides, 2 min / 10 slides and 15 min / 20 slides (and the cooldown repeat, and the rushing case) is asserted with a fake clock (`AlertTimingTableTests`) and written into the validation guide. The real Kotlin client sees every alert kind from the real server running 100 times faster (opt-in cross-stack test). One haptic pattern per **new** alert (identified by the additive `sequence` field): none on repeats, acknowledgments, reconnections, or an alert already active when the app starts. Screen kept on during a session (flag set, kept while paused, cleared at the summary and Home). | Seeing the alerts at the scripted seconds (rows 43 to 56), the Logcat lines (rows 57 to 61), the screen staying on (rows 62 to 64). **How the vibration feels needs a physical watch.** |
+| RF 11 | The recommendation text and the pace pill follow each snapshot (fake repository tests); recommendations come from the companion, not from the watch. | Reading them on the emulator. |
+| RF 12 | Closing the companion during a running or paused session asks first, ends it as `interruptedByDisconnection`, saves exactly one record, tells the watch, stops the server cleanly; idle closing does not ask; a second call or an already ended session saves nothing more. | The question as it looks on screen and the history after it (rows 65 to 68). |
+| RF 13, RF 14 | The history flow on the watch: summary after finishing, list newest first, an interrupted record shown and opened read-only, empty state. Dates: "Hoy", "Ayer", "08 Oct" with capitalized months, local-time conversion of the UTC timestamp, midnight boundaries, year change, another time zone. Pace keeps a dot as decimal separator under a Spanish locale. | The history on the emulator after a real session. |
+| RF 15 | A failed command plays one short pulse (the log line and the recording player prove it). | Feel on a physical watch. |
+
+Limits that tests cannot remove (Phase 6): the vibrator is behind `AndroidHapticsPlayer`, which has no automated test of its own; the closing question is a standard message box shown by the window code, which the tests cannot see; the alert times are exact for the companion's one-second tick, and the real network adds about a second.
+
+## Phase 7a status: validation kit
+
+Counts: companion 576 tests (plus 5 opt-in desktop tests), watch 238, opt-in cross-stack 8. The manual guide now covers every RF and RNF and the seven acceptance criteria in one place (section 7 and section 8 of `validation/validation-guide.md`).
+
+| Code | Proven by tests | Awaits your manual run |
+|---|---|---|
+| RNF 03 | Debug builds log the round trip of each command on the watch and the activation plus key time on the companion. Over loopback with the developer host the median round trip is below 1 ms and the 95th percentile below 1 ms (it presses no real key). | The real number with PowerPoint: rows 27 and 42 and section 4 of the validation guide. The slideshow repaint is added by eye. |
+| RNF 04 | The client declares a killed host lost within 10 ms of loopback time, and a silent host within 3.5 s on virtual time with the production constants. | Rows 6, 28 and 29. |
+| RNF 05 | Windows 11 only. | **Windows 10 is not verified**; row 84. |
+
+## Phase 7b-1 status: real PowerPoint key delivery
+
+Counts: companion 617 tests (plus 8 opt-in desktop tests), watch 238, opt-in cross-stack 8.
+
+| Code | Proven by tests | Awaits your manual run |
+|---|---|---|
+| RF 05, RF 06 | The foreground rule (the chosen window or a window it owns, same program) with the faked window system: accepted and refused cases, including a thief, another program's window claiming an owner link, the owner of the chosen window, and an unrelated window of the same program (`ForegroundRuleTests`). Helper windows in separate processes (opt-in desktop tests): a program that hands the focus to an owned window failed before the rule (`NotConfirmedForeground`) and delivers to the owned window after it; top-most and full-screen helper windows deliver. | Real PowerPoint: rows 30 to 42, 86 and 88 of the validation guide. Whether PowerPoint owns its show window as the helper does is not confirmed until the report of row 86 is read. |
+| RF 15 | Every failing result has its own Spanish reason in the activity line (`KeyTargetingTests`, `MainViewModelTests`, `TargetSelectionViewModelTests`); the diagnostic report is made without any key and without a pairing code (`DiagnosticReportTests`). | How the reasons read, and the report from the real machine (rows 86 and 87). |
+
+## Phase 8 status: robustness and usability
+
+Counts: companion 712 tests (plus 11 opt-in desktop tests), watch 250, opt-in cross-stack 11.
+
+| Code | Proven by tests | Awaits your manual run |
+|---|---|---|
+| RF 02 | The watch keeps the "Reconectando…" state and the session on screen during outages of several minutes and never reaches "Desconectado" while a session runs; idle behavior (give up after 30 s, "Reintentar") is unchanged (`SessionReconnectionTest`, 12 tests, on virtual time; 8 of them fail without the change). | Rows 25, 97 and 98. |
+| RF 05, RF 06 | The only slide show is chosen by itself, several are not, a stored choice that resolves is never replaced, choosing never verifies, and the warning appears only for the PowerPoint window that is not the slide show (`AutomaticTargetTests`, 21 tests). | Rows 89 to 92. |
+| RF 13 | A running or paused session survives a crash: it is written atomically, recovered exactly once as interrupted (also after a crash during recovery, with a failing history, with a corrupt file, with the real files and the real database, and with a killed real server process), and never resumed (`ActiveSessionTests`, `RememberedCodeCrossStackTest`). | Row 93. |
+| RF 15 | The session is not closed by a long outage and the watch resynchronizes on reconnection, including after a companion restart and after a rejected code (`SessionReconnectionTest`). | Rows 97 and 98. |
+| RNF 06 | The history record of an interrupted session is in the database after recovery; the remembered pairing code persists across a restart (in-memory and file stores, and the real watch client against the real server). | Rows 93 and 94. |
+| RNF 07 | The code is stored only when the user turns the switch on, is replaced on regeneration, never appears in the log or in any other file, and the lockout still applies (`RememberedPairingCodeTests`). | Rows 94 to 96. |
+| RF 01 | A second companion is refused through a lock abstraction, through two objects of one name, and (opt-in) across processes, including a killed holder (`Phase8WindowTests`, `SingleInstanceProcessTests`). | Row 99. |
+
+## Phase 10 status: optional AI wording of the recommendation
+
+Counts: companion 906 tests (plus 11 opt-in desktop tests), watch 269, opt-in cross-stack 13.
+
+| Code | Proven by tests | Awaits your manual run |
+|---|---|---|
+| RF 11 | The pace, the alerts and the recommendation code are untouched; a text is only an extra in `freeText`, filled for the current situation only, dropped when the situation changes, and absent for every failure (switch off, no variables, timeout, 401, 403, 429, 5xx, malformed answer, unusable text, open circuit breaker); the request and the answer are proven with a local test server and a fake client, never a real provider (`EnricherTests`, `ClientTests`, `AiRecommendationTests`). The watch shows the text in the alert pill on both round sizes at font scales 1.0 and 1.3 and falls back to the usual wording (`AiTipLayoutTest`, `RecommendationTipStateTest`, `FreeTextWireTest`); the real watch client sees the text from the real server with a canned client (`AiTextCrossStackTest`). | Rows 100 to 105 and 107. **No call to a real provider was made** (row 103). |
+| RNF 07 | The request holds only codes and coarse numbers (golden body, canary test); the key is only in the Authorization header: never in logs after every kind of answer, in options, in the diagnostic report, in an activity line or in any public member (`PromptTests`, `ClientTests`, `SecretsTests`); https is required except for this computer. | Rows 100 to 102 and 106. |
