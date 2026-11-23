@@ -9,6 +9,7 @@ import com.presenta.wear.model.ErrorCode
 import com.presenta.wear.model.PaceStatus
 import com.presenta.wear.model.RecommendationCode
 import java.time.LocalDate
+import java.util.Locale
 import kotlin.math.abs
 
 /**
@@ -93,13 +94,20 @@ class StringMapper(private val resources: Resources) {
         is DayLabel.Date -> resources.getString(
             R.string.day_month_format,
             label.day,
-            monthShort(label.monthIndex).replaceFirstChar { it.uppercase() },
+            monthShort(label.monthIndex),
         )
     }
 
-    /** Default session name built on the watch from a string resource: the day number and the short month. */
+    /**
+     * Default session name built on the watch from a string resource: the day number and the short month. The month
+     * is lowercase inside a sentence ("Presentación 31 oct"), while history rows capitalize it ("08 Oct").
+     */
     fun sessionName(date: LocalDate): String =
-        resources.getString(R.string.session_default_name, date.dayOfMonth, monthShort(date.monthValue - 1))
+        resources.getString(
+            R.string.session_default_name,
+            date.dayOfMonth,
+            monthShort(date.monthValue - 1).lowercase(Locale.ROOT),
+        )
 
     private fun monthShort(index: Int): String = resources.getStringArray(R.array.month_short)[index]
 
