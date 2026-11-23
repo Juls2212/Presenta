@@ -44,12 +44,14 @@ object WireMapper {
         remainingMs = remainingMs,
         slidesRemaining = slidesRemaining,
         slideDeviation = slideDeviation,
+        sequence = sequence,
     )
 
     fun RecommendationPayload.toModel(): Recommendation = Recommendation(
         code = RecommendationCode.valueOf(code.name),
         slidesRemaining = slidesRemaining,
         timeRemainingMs = timeRemainingMs,
+        freeText = freeText,
     )
 
     fun HistoryItemPayload.toModel(): HistoryItem = HistoryItem(
