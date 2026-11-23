@@ -9,6 +9,9 @@ internal static unsafe partial class WindowNative
 {
     internal const int GwlExStyle = -20;
     internal const int WsExToolWindow = 0x80;
+    internal const int WsExTopMost = 0x8;
+    internal const uint GwOwner = 4;
+    internal const uint GaRootOwner = 3;
     internal const int SwRestore = 9;
     internal const int DwmaCloaked = 14;
     internal const int ErrorAccessDenied = 5;
@@ -48,13 +51,27 @@ internal static unsafe partial class WindowNative
     [LibraryImport("user32.dll")]
     internal static partial nint GetForegroundWindow();
 
-    [LibraryImport("user32.dll")]
+    [LibraryImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool SetForegroundWindow(nint window);
 
-    [LibraryImport("user32.dll")]
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool BringWindowToTop(nint window);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool AttachThreadInput(uint attachThread, uint attachToThread, [MarshalAs(UnmanagedType.Bool)] bool attach);
+
+    [LibraryImport("user32.dll", EntryPoint = "GetWindow")]
+    internal static partial nint GetRelatedWindow(nint window, uint relationship);
+
+    [LibraryImport("user32.dll")]
+    internal static partial nint GetAncestor(nint window, uint flags);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool IsZoomed(nint window);
 
     [LibraryImport("kernel32.dll")]
     internal static partial uint GetCurrentThreadId();
@@ -127,33 +144,48 @@ public sealed unsafe class Win32WindowSystem : IWindowSystem
 
     public bool Restore(long handle) => WindowNative.IsIconic((nint)handle) && WindowNative.ShowWindow((nint)handle, WindowNative.SwRestore);
 
-    public bool TryBringToForeground(long handle)
+    public bool TryBringToForeground(long handle) => BringToForeground(handle).SetForegroundSucceeded;
+
+    public ForegroundAttempt BringToForeground(long handle)
     {
         var foreground = WindowNative.GetForegroundWindow();
         var foregroundThread = foreground == 0 ? 0 : WindowNative.GetWindowThreadProcessId(foreground, out _);
         var thisThread = WindowNative.GetCurrentThreadId();
-        var attached = foregroundThread != 0 && foregroundThread != thisThread
-            && WindowNative.AttachThreadInput(thisThread, foregroundThread, true);
+        var attempt = new ForegroundAttempt { ForegroundBefore = foreground, ForegroundThread = (int)foregroundThread, CurrentThread = (int)thisThread };
+        var attached = false;
+        if (foregroundThread != 0 && foregroundThread != thisThread)
+        {
+            attached = WindowNative.AttachThreadInput(thisThread, foregroundThread, true);
+            attempt = attempt with { Attached = attached, AttachError = attached ? 0 : Marshal.GetLastPInvokeError() };
+        }
+
         try
         {
-            return WindowNative.SetForegroundWindow((nint)handle);
+            var set = WindowNative.SetForegroundWindow((nint)handle);
+            attempt = attempt with { SetForegroundSucceeded = set, SetForegroundError = set ? 0 : Marshal.GetLastPInvokeError() };
+            var top = WindowNative.BringWindowToTop((nint)handle);
+            attempt = attempt with { BringToTopSucceeded = top, BringToTopError = top ? 0 : Marshal.GetLastPInvokeError() };
         }
         finally
         {
             if (attached)
             {
-                WindowNative.AttachThreadInput(thisThread, foregroundThread, false);
+                var detached = WindowNative.AttachThreadInput(thisThread, foregroundThread, false);
+                attempt = attempt with { Detached = detached, DetachError = detached ? 0 : Marshal.GetLastPInvokeError() };
             }
         }
+
+        return attempt;
     }
 
-    public bool WaitUntilForeground(long handle, TimeSpan timeout)
+    public bool WaitUntilForeground(long handle, TimeSpan timeout, Func<long, bool>? alsoAccept = null)
     {
         var clock = Stopwatch.StartNew();
         using var pause = new ManualResetEventSlim(false);
         while (true)
         {
-            if (WindowNative.GetForegroundWindow() == (nint)handle)
+            var current = WindowNative.GetForegroundWindow();
+            if (current == (nint)handle || (alsoAccept is not null && current != 0 && alsoAccept(current)))
             {
                 return true;
             }
@@ -165,6 +197,26 @@ public sealed unsafe class Win32WindowSystem : IWindowSystem
 
             pause.Wait(TimeSpan.FromMilliseconds(10));
         }
+    }
+
+    public long GetOwner(long handle) => WindowNative.IsWindow((nint)handle) ? WindowNative.GetRelatedWindow((nint)handle, WindowNative.GwOwner) : 0;
+
+    public WindowDetails? GetDetails(long handle)
+    {
+        var info = GetWindow(handle);
+        if (info is null)
+        {
+            return null;
+        }
+
+        var window = (nint)handle;
+        var style = WindowNative.GetWindowLong(window, WindowNative.GwlExStyle);
+        return new WindowDetails(
+            info,
+            WindowNative.IsZoomed(window),
+            (style & WindowNative.WsExTopMost) != 0,
+            WindowNative.GetRelatedWindow(window, WindowNative.GwOwner),
+            WindowNative.GetAncestor(window, WindowNative.GaRootOwner));
     }
 
     public bool SendArrow(SlideDirection direction) => ArrowKeyInjector.Press(direction);
