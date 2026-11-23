@@ -13,6 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Presenta.Ai\Presenta.Ai.csproj" />
     <ProjectReference Include="..\Presenta.Companion.ViewModels\Presenta.Companion.ViewModels.csproj" />
     <ProjectReference Include="..\Presenta.Keyboard.Windows\Presenta.Keyboard.Windows.csproj" />
     <ProjectReference Include="..\Presenta.Persistence\Presenta.Persistence.csproj" />
