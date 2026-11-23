@@ -66,6 +66,34 @@ public class SessionFlowTests
     }
 
     [Fact]
+    public async Task An_alert_keeps_its_sequence_across_snapshots_and_the_next_alert_gets_the_next_number()
+    {
+        await using var harness = await ServerHarness.StartAsync(o => o with { HeartbeatTimeout = TimeSpan.FromHours(2) });
+        var client = await harness.ConnectAsync();
+        // One slide, so the presenter is never off pace and only the two time alerts exist, however the fake timer ticks.
+        await client.CommandAsync(Msg.Start(slides: 1, durationMs: 60_000, name: "Seq"));
+
+        harness.Time.Advance(TimeSpan.FromSeconds(45)); // 60 s plan: the critical alert fires at 42 s
+        var first = (await client.ReceiveUntilAsync<StateUpdateMessage>(u => u.Payload.Session?.ActiveAlert is not null)).Payload.Session!.ActiveAlert!;
+        Assert.Equal(AlertKind.TimeCritical, first.Kind);
+        Assert.Equal(1, first.Sequence);
+
+        // later snapshots (here the one after a pause) carry the same alert with the same number
+        Assert.True((await client.CommandAsync(Msg.Pause())).Payload.Ok);
+        var again = (await client.ReceiveUntilAsync<StateUpdateMessage>(u => u.Payload.Session?.State == SessionState.Paused)).Payload.Session!.ActiveAlert!;
+        Assert.Equal(AlertKind.TimeCritical, again.Kind);
+        Assert.Equal(1, again.Sequence);
+
+        // acknowledging clears it, and the next alert (overtime) is number 2
+        Assert.True((await client.CommandAsync(Msg.Resume())).Payload.Ok);
+        Assert.True((await client.CommandAsync(Msg.Acknowledge())).Payload.Ok);
+        harness.Time.Advance(TimeSpan.FromSeconds(20)); // 65 s elapsed of 60: overtime
+        var next =(await client.ReceiveUntilAsync<StateUpdateMessage>(u => u.Payload.Session?.ActiveAlert is not null)).Payload.Session!.ActiveAlert!;
+        Assert.Equal(AlertKind.Overtime, next.Kind);
+        Assert.Equal(2, next.Sequence);
+    }
+
+    [Fact]
     public async Task Finishing_while_paused_ends_as_ended_while_paused()
     {
         await using var harness = await ServerHarness.StartAsync();
