@@ -25,6 +25,40 @@ public sealed record WindowInfo(
     bool IsMinimized = false,
     bool IsElevated = false);
 
+/// <summary>More about one window, for the diagnostic report and the foreground rule.</summary>
+/// <param name="Info">The basic description.</param>
+/// <param name="IsMaximized">The window is maximized.</param>
+/// <param name="IsTopMost">The window has the top-most style.</param>
+/// <param name="Owner">Handle of the window's owner (not its parent), or 0.</param>
+/// <param name="RootOwner">Handle of the root owner of the window, or 0.</param>
+public sealed record WindowDetails(WindowInfo Info, bool IsMaximized, bool IsTopMost, long Owner, long RootOwner);
+
+/// <summary>What happened in one attempt to bring a window to the front. Error values are Win32 last-error codes (0 when none).</summary>
+public sealed record ForegroundAttempt
+{
+    public long ForegroundBefore { get; init; }
+
+    public int ForegroundThread { get; init; }
+
+    public int CurrentThread { get; init; }
+
+    public bool Attached { get; init; }
+
+    public int AttachError { get; init; }
+
+    public bool SetForegroundSucceeded { get; init; }
+
+    public int SetForegroundError { get; init; }
+
+    public bool BringToTopSucceeded { get; init; }
+
+    public int BringToTopError { get; init; }
+
+    public bool Detached { get; init; }
+
+    public int DetachError { get; init; }
+}
+
 /// <summary>
 /// Everything the companion needs from the window system. The Windows implementation lives in
 /// <c>Presenta.Keyboard.Windows</c> (the only place that calls Win32); tests supply a fake.
@@ -51,13 +85,19 @@ public interface IWindowSystem
 
     /// <summary>
     /// Asks Windows to bring the window to the foreground using the supported technique for a caller that is not itself
-    /// the foreground process (attach to the foreground thread's input, set the foreground window, detach).
-    /// Returns what Windows reported; the caller must still confirm with <see cref="WaitUntilForeground"/>.
+    /// the foreground process (attach to the foreground thread's input, set the foreground window, bring it to the top,
+    /// detach). Returns what each step reported; the caller must still confirm with <see cref="WaitUntilForeground"/>.
     /// </summary>
-    bool TryBringToForeground(long handle);
+    ForegroundAttempt BringToForeground(long handle);
 
-    /// <summary>Waits up to <paramref name="timeout"/> for the window to become the foreground window.</summary>
-    bool WaitUntilForeground(long handle, TimeSpan timeout);
+    /// <summary>Waits up to <paramref name="timeout"/> for the window, or a window <paramref name="alsoAccept"/> approves, to become the foreground window.</summary>
+    bool WaitUntilForeground(long handle, TimeSpan timeout, Func<long, bool>? alsoAccept = null);
+
+    /// <summary>Handle of the owner of the window (not its parent), or 0 when it has none or does not exist.</summary>
+    long GetOwner(long handle);
+
+    /// <summary>Extra details of the window, or null when it no longer exists.</summary>
+    WindowDetails? GetDetails(long handle);
 
     /// <summary>Presses and releases the Right (Next) or Left (Previous) arrow key into whatever window is in the foreground.</summary>
     bool SendArrow(SlideDirection direction);
