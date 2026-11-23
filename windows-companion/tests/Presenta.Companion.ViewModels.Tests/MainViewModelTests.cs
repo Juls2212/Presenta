@@ -115,6 +115,8 @@ public class MainViewModelTests
 
         public RecordingSlideKeyboard Keyboard { get; } = new();
 
+        public InMemoryHistoryStore History { get; } = new();
+
         public CompanionHost Host { get; }
 
         public MainViewModel ViewModel { get; }
@@ -124,7 +126,7 @@ public class MainViewModelTests
             Host = new CompanionHost(
                 options ?? new CompanionServerOptions { Port = 0, PairingCode = "123456", HeartbeatTimeout = TimeSpan.FromHours(2) },
                 Keyboard,
-                new InMemoryHistoryStore(),
+                History,
                 Time);
             ViewModel = new MainViewModel(
                 Host,
@@ -454,5 +456,168 @@ public class MainViewModelTests
         await Task.Delay(100);
 
         Assert.False(rig.ViewModel.WatchConnected);
+    }
+
+    // ---- closing the window (ADR-64) ----
+
+    [Fact]
+    public async Task Closing_during_a_running_session_asks_first_and_saves_exactly_one_interrupted_record()
+    {
+        await using var rig = new Rig();
+        await rig.StartAsync();
+        await using var watch = await WatchStub.ConnectAsync(rig.Host.Port);
+        await watch.CommandAsync("session.start", """{ "plannedSlides": 10, "plannedDurationMs": 600000, "name": "Cut" }""");
+        rig.Time.Advance(TimeSpan.FromSeconds(90));
+        var asked = new List<(string Title, string Message)>();
+
+        var closed = await rig.ViewModel.RequestCloseAsync((title, message) =>
+        {
+            asked.Add((title, message));
+            return true;
+        });
+
+        Assert.True(closed);
+        Assert.Equal(new[] { (UiText.Get("Close_Title"), UiText.Get("Close_Message")) }, asked);
+        var record = Assert.Single(rig.History.Records);
+        Assert.Equal(Presenta.Domain.FinalState.InterruptedByDisconnection, record.FinalState);
+        Assert.Equal("Cut", record.Name);
+        Assert.Equal(90_000, record.ActualDurationMs);
+        Assert.False(rig.Host.IsRunning); // the server was stopped cleanly
+    }
+
+    [Fact]
+    public async Task Closing_during_a_paused_session_also_asks_and_saves_one_record()
+    {
+        await using var rig = new Rig();
+        await rig.StartAsync();
+        await using var watch = await WatchStub.ConnectAsync(rig.Host.Port);
+        await watch.CommandAsync("session.start", """{ "plannedSlides": 5, "plannedDurationMs": 60000 }""");
+        await watch.CommandAsync("session.pause");
+
+        Assert.True(rig.ViewModel.NeedsCloseConfirmation);
+        Assert.True(await rig.ViewModel.RequestCloseAsync((_, _) => true));
+
+        Assert.Single(rig.History.Records);
+    }
+
+    [Fact]
+    public async Task Declining_the_confirmation_keeps_the_window_the_session_and_the_server()
+    {
+        await using var rig = new Rig();
+        await rig.StartAsync();
+        await using var watch = await WatchStub.ConnectAsync(rig.Host.Port);
+        await watch.CommandAsync("session.start", """{ "plannedSlides": 5, "plannedDurationMs": 60000 }""");
+
+        var closed = await rig.ViewModel.RequestCloseAsync((_, _) => false);
+
+        Assert.False(closed);
+        Assert.Empty(rig.History.Records);
+        Assert.True(rig.Host.IsRunning);
+        Assert.True(rig.ViewModel.NeedsCloseConfirmation);
+        await watch.CommandAsync("slide.next"); // the session still answers
+    }
+
+    [Fact]
+    public async Task Closing_with_no_session_does_not_ask_and_saves_nothing()
+    {
+        await using var rig = new Rig();
+        await rig.StartAsync();
+        var asked = 0;
+
+        Assert.False(rig.ViewModel.NeedsCloseConfirmation);
+        var closed = await rig.ViewModel.RequestCloseAsync((_, _) =>
+        {
+            asked++;
+            return true;
+        });
+
+        Assert.True(closed);
+        Assert.Equal(0, asked);
+        Assert.Empty(rig.History.Records);
+        Assert.False(rig.Host.IsRunning);
+    }
+
+    [Fact]
+    public async Task Closing_after_the_session_already_ended_does_not_ask_and_does_not_duplicate_the_record()
+    {
+        await using var rig = new Rig();
+        await rig.StartAsync();
+        await using var watch = await WatchStub.ConnectAsync(rig.Host.Port);
+        await watch.CommandAsync("session.start", """{ "plannedSlides": 5, "plannedDurationMs": 60000 }""");
+        await watch.CommandAsync("session.finish");
+        // The command result is sent before the session is closed and the status published, so wait for that (a rare race
+        // under load that this test used to ignore).
+        await UntilAsync(() => rig.History.Records.Count == 1 && !rig.ViewModel.NeedsCloseConfirmation, "the session to be closed");
+        Assert.Single(rig.History.Records);
+        var asked = 0;
+
+        var closed = await rig.ViewModel.RequestCloseAsync((_, _) =>
+        {
+            asked++;
+            return true;
+        });
+
+        Assert.True(closed);
+        Assert.Equal(0, asked);
+        var record = Assert.Single(rig.History.Records);
+        Assert.Equal(Presenta.Domain.FinalState.FinishedManually, record.FinalState);
+    }
+
+    [Fact]
+    public async Task Interrupting_twice_saves_one_record_only()
+    {
+        await using var rig = new Rig();
+        await rig.StartAsync();
+        await using var watch = await WatchStub.ConnectAsync(rig.Host.Port);
+        await watch.CommandAsync("session.start", """{ "plannedSlides": 5, "plannedDurationMs": 60000 }""");
+
+        Assert.True(await rig.Host.Service.InterruptActiveSessionAsync());
+        Assert.False(await rig.Host.Service.InterruptActiveSessionAsync());
+
+        Assert.Single(rig.History.Records);
+    }
+
+    [Fact]
+    public async Task The_watch_is_told_the_session_ended_as_interrupted()
+    {
+        await using var rig = new Rig();
+        await rig.StartAsync();
+        await using var watch = await WatchStub.ConnectAsync(rig.Host.Port);
+        await watch.CommandAsync("session.start", """{ "plannedSlides": 5, "plannedDurationMs": 60000 }""");
+
+        // The service call alone, so the connection stays open long enough to read what was sent (closing the window
+        // then stops the server, which closes the connection right after).
+        Assert.True(await rig.Host.Service.InterruptActiveSessionAsync());
+
+        var seen = new List<string>();
+        while (!seen.Any(m => m.Contains("\"type\":\"session.summary\"", StringComparison.Ordinal)))
+        {
+            seen.Add(await watch.ReceiveAsync());
+        }
+
+        Assert.Contains(seen, m => m.Contains("interruptedByDisconnection", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void The_confirmation_texts_are_spanish_resources()
+    {
+        Assert.False(string.IsNullOrWhiteSpace(UiText.Get("Close_Title")));
+        Assert.NotEqual("Close_Message", UiText.Get("Close_Message"));
+        Assert.False(string.IsNullOrWhiteSpace(UiText.Get("Close_Message")));
+    }
+
+    [Fact]
+    public async Task A_failed_key_line_in_the_activity_list_names_the_reason()
+    {
+        await using var rig = new Rig();
+        await rig.StartAsync();
+        await using var watch = await WatchStub.ConnectAsync(rig.Host.Port);
+        await watch.CommandAsync("session.start", """{ "plannedSlides": 5, "plannedDurationMs": 60000 }""");
+        rig.Keyboard.Result = Presenta.Domain.Keyboard.KeyDeliveryResult.NotConfirmedForeground;
+
+        await watch.CommandAsync("slide.next");
+
+        var expected = UiText.Format("Event_KeyFailedReason", UiText.Get("Event_KeyReason_NotConfirmedForeground"));
+        Assert.Contains(rig.ViewModel.Events, line => line.EndsWith(expected, StringComparison.Ordinal));
     }
 }
