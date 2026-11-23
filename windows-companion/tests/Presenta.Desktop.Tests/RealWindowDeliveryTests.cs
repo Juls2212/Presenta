@@ -26,14 +26,23 @@ internal sealed class Probe : IDisposable
     private readonly Process _process;
     private readonly string _directory;
 
-    private Probe(Process process, string directory, long handle)
+    private Probe(Process process, string directory, long handle, long ownedHandle)
     {
         _process = process;
         _directory = directory;
         Handle = handle;
+        OwnedHandle = ownedHandle;
     }
 
     public long Handle { get; }
+
+    /// <summary>Handle of the window owned by this probe's window, or 0 when it has none.</summary>
+    public long OwnedHandle { get; }
+
+    public IReadOnlyList<string> OwnedKeys =>
+        File.Exists(OwnedLogPath) ? File.ReadAllLines(OwnedLogPath).Where(l => l.Length > 0).ToArray() : Array.Empty<string>();
+
+    private string OwnedLogPath => Path.Combine(_directory, "owned-keys.log");
 
     public IReadOnlyList<string> Keys =>
         File.Exists(LogPath) ? File.ReadAllLines(LogPath).Where(l => l.Length > 0).ToArray() : Array.Empty<string>();
@@ -42,7 +51,7 @@ internal sealed class Probe : IDisposable
 
     public bool HasExited => _process.HasExited;
 
-    public static Probe Start(string title)
+    public static Probe Start(string title, string? ownedTitle = null, bool topMost = false, bool fullScreen = false)
     {
         var directory = Path.Combine(Path.GetTempPath(), "presenta-probe-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
@@ -57,9 +66,37 @@ internal sealed class Probe : IDisposable
         start.ArgumentList.Add(log);
         start.ArgumentList.Add("--ready");
         start.ArgumentList.Add(ready);
+        var ownedReady = Path.Combine(directory, "owned-ready.txt");
+        if (ownedTitle is not null)
+        {
+            start.ArgumentList.Add("--owned-title");
+            start.ArgumentList.Add(ownedTitle);
+            start.ArgumentList.Add("--owned-log");
+            start.ArgumentList.Add(Path.Combine(directory, "owned-keys.log"));
+            start.ArgumentList.Add("--owned-ready");
+            start.ArgumentList.Add(ownedReady);
+        }
+
+        if (topMost)
+        {
+            start.ArgumentList.Add("--topmost");
+        }
+
+        if (fullScreen)
+        {
+            start.ArgumentList.Add("--fullscreen");
+        }
+
         var process = Process.Start(start) ?? throw new InvalidOperationException("The probe did not start.");
         WaitFor(() => File.Exists(ready) && new FileInfo(ready).Length > 0, TimeSpan.FromSeconds(15), "the probe window to open");
-        return new Probe(process, directory, long.Parse(File.ReadAllText(ready), CultureInfo.InvariantCulture));
+        long owned = 0;
+        if (ownedTitle is not null)
+        {
+            WaitFor(() => File.Exists(ownedReady) && new FileInfo(ownedReady).Length > 0, TimeSpan.FromSeconds(15), "the owned window to open");
+            owned = long.Parse(File.ReadAllText(ownedReady), CultureInfo.InvariantCulture);
+        }
+
+        return new Probe(process, directory, long.Parse(File.ReadAllText(ready), CultureInfo.InvariantCulture), owned);
     }
 
     public void CloseWindow()
@@ -216,6 +253,71 @@ public class RealWindowDeliveryTests
         Assert.Equal(new[] { "Right" }, presentation.Keys);
         Assert.Empty(thief.Keys);
         Assert.False(windows.GetWindow(presentation.Handle)!.IsMinimized);
+    }
+
+    /// <summary>
+    /// Hypothesis A. The chosen window is the main frame and the program hands the focus to the window it owns (a slide-show
+    /// window owned by the frame). The foreground then is the owned window, never the exact chosen handle.
+    /// </summary>
+    [DesktopFact]
+    public void When_the_program_hands_the_focus_to_a_window_it_owns_the_key_reaches_that_owned_window()
+    {
+        var token = Guid.NewGuid().ToString("N")[..8];
+        using var frame = Probe.Start("Presenta probe FRAME " + token, ownedTitle: "Presenta probe SHOW " + token);
+        using var thief = Probe.Start("Presenta probe THIEF " + token);
+        var windows = new Win32WindowSystem();
+        var service = new PresentationTargetService(windows, new InMemoryTargetSettingsStore());
+        service.Select(service.ListCandidates().Single(c => c.Window.Title.EndsWith("FRAME " + token, StringComparison.Ordinal)).Window);
+        Probe.WaitFor(() => windows.GetForegroundWindow() == thief.Handle, TimeSpan.FromSeconds(5), "the thief window to hold the foreground");
+        Assert.Equal(frame.Handle, windows.GetOwner(frame.OwnedHandle));
+
+        var result = new WindowSlideKeyboard(service, windows).Send(SlideDirection.Next);
+
+        Assert.Equal(KeyDeliveryResult.Delivered, result);
+        Probe.WaitFor(() => frame.OwnedKeys.Count >= 1, TimeSpan.FromSeconds(3), "the owned window to receive the key");
+        using var settle = new ManualResetEventSlim(false);
+        settle.Wait(400);
+        Assert.Equal(new[] { "Right" }, frame.OwnedKeys);
+        Assert.Empty(frame.Keys);
+        Assert.Empty(thief.Keys);
+    }
+
+    /// <summary>Hypothesis D, first half: a top-most presentation window receives the key like any other.</summary>
+    [DesktopFact]
+    public void A_topmost_presentation_window_receives_the_key()
+    {
+        var token = Guid.NewGuid().ToString("N")[..8];
+        using var presentation = Probe.Start("Presenta probe PRESENTATION " + token, topMost: true);
+        using var thief = Probe.Start("Presenta probe THIEF " + token);
+        var windows = new Win32WindowSystem();
+        var service = new PresentationTargetService(windows, new InMemoryTargetSettingsStore());
+        service.Select(service.ListCandidates().Single(c => c.Window.Title.EndsWith("PRESENTATION " + token, StringComparison.Ordinal)).Window);
+        Probe.WaitFor(() => windows.GetForegroundWindow() == thief.Handle, TimeSpan.FromSeconds(5), "the thief window to hold the foreground");
+
+        Assert.Equal(KeyDeliveryResult.Delivered, new WindowSlideKeyboard(service, windows).Send(SlideDirection.Next));
+
+        Probe.WaitFor(() => presentation.Keys.Count >= 1, TimeSpan.FromSeconds(3), "the presentation window to receive the key");
+        Assert.Equal(new[] { "Right" }, presentation.Keys);
+        Assert.Empty(thief.Keys);
+    }
+
+    /// <summary>Hypothesis D, second half: a borderless maximized presentation window (a full-screen show) receives the key.</summary>
+    [DesktopFact]
+    public void A_full_screen_presentation_window_receives_the_key()
+    {
+        var token = Guid.NewGuid().ToString("N")[..8];
+        using var presentation = Probe.Start("Presenta probe PRESENTATION " + token, fullScreen: true);
+        using var thief = Probe.Start("Presenta probe THIEF " + token);
+        var windows = new Win32WindowSystem();
+        var service = new PresentationTargetService(windows, new InMemoryTargetSettingsStore());
+        service.Select(service.ListCandidates().Single(c => c.Window.Title.EndsWith("PRESENTATION " + token, StringComparison.Ordinal)).Window);
+        Probe.WaitFor(() => windows.GetForegroundWindow() == thief.Handle, TimeSpan.FromSeconds(5), "the thief window to hold the foreground");
+
+        Assert.Equal(KeyDeliveryResult.Delivered, new WindowSlideKeyboard(service, windows).Send(SlideDirection.Next));
+
+        Probe.WaitFor(() => presentation.Keys.Count >= 1, TimeSpan.FromSeconds(3), "the presentation window to receive the key");
+        Assert.Equal(new[] { "Right" }, presentation.Keys);
+        Assert.Empty(thief.Keys);
     }
 
     private static void MinimizeWindow(long handle) => Native.ShowWindow((nint)handle, 6);
