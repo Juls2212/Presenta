@@ -41,6 +41,9 @@ class InMemoryPairingStore(
 /** A scripted WebSocket: tests play the companion by calling [open], [receive], [serverClose] and [fail]. */
 class FakeSocket(val url: String, private val listener: SocketListener, val createdAtMs: Long) : WatchSocket {
     val sent = mutableListOf<String>()
+
+    /** Set by tests that fail every attempt in a loop, to remember which sockets they already failed. */
+    var failedByTest = false
     var cancelled = false
         private set
 
@@ -145,5 +148,5 @@ object Companion {
         recommendation = RecommendationPayload(WireRecommendationCode.OnTrack, total - slide, plannedMs - elapsedMs, null),
     )
 
-    val timeAlert = AlertPayload(WireAlertKind.TimeRunningOut, WireAlertSeverity.Warning, 600_000, 300_000, 9, -2)
+    val timeAlert = AlertPayload(WireAlertKind.TimeRunningOut, WireAlertSeverity.Warning, 600_000, 300_000, 9, -2, 1)
 }
