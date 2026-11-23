@@ -71,14 +71,15 @@
     },
     "alert": {
       "type": "object",
-      "required": ["kind", "severity", "raisedAtElapsedMs", "remainingMs", "slidesRemaining", "slideDeviation"],
+      "required": ["kind", "severity", "raisedAtElapsedMs", "remainingMs", "slidesRemaining", "slideDeviation", "sequence"],
       "properties": {
         "kind": { "$ref": "#/$defs/alertKind" },
         "severity": { "$ref": "#/$defs/alertSeverity" },
         "raisedAtElapsedMs": { "$ref": "#/$defs/durationMs" },
         "remainingMs": { "$ref": "#/$defs/signedDurationMs" },
         "slidesRemaining": { "type": "integer", "minimum": 0 },
-        "slideDeviation": { "type": "integer" }
+        "slideDeviation": { "type": "integer" },
+        "sequence": { "type": "integer", "minimum": 1 }
       }
     },
     "recommendation": {
@@ -88,7 +89,7 @@
         "code": { "$ref": "#/$defs/recommendationCode" },
         "slidesRemaining": { "type": "integer", "minimum": 0 },
         "timeRemainingMs": { "$ref": "#/$defs/signedDurationMs" },
-        "freeText": { "type": ["string", "null"] }
+        "freeText": { "type": ["string", "null"], "maxLength": 80 }
       }
     },
     "sessionSnapshot": {
