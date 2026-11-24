@@ -3,14 +3,14 @@
 Wear OS frontend for Presenta: screens, navigation, UI state, and view models.
 
 Stack: Kotlin, Jetpack Compose for Wear OS, Wear Material 3 (stable 1.7.1), Wear Compose navigation, ViewModel and StateFlow.
-This module never touches Windows keyboard APIs or OS automation. It will only talk to the companion through the protocol in `../shared-contracts/`.
+This module never touches Windows keyboard APIs or OS automation. It talks to the companion only through the protocol in `../shared-contracts/`.
 Every user-visible string is Spanish and lives only in `app/src/main/res/values/strings.xml` (English resource names).
 
-## Status (Phase 6)
+## Status
 
 The whole UI exists and, by default, talks to the Windows companion through `RemotePresentaRepository` (OkHttp WebSocket, protocol v1, DataStore for the pairing code). The fake repository is still used by previews, screenshots, and tests; build with `-PuseFakeRepository=true` to run the app on it. `PresentaApplication` is the only composition point.
 
-Phase 6 added:
+Also built (Phase 6):
 
 - **Haptics** (`haptics/`): `HapticsCoordinator` plays one `HapticPattern` for each new alert (identified by the alert's `sequence`) and one short pulse for a failed command; nothing else vibrates. `AndroidHapticsPlayer` is the real vibrator (needs the `VIBRATE` permission, declared); tests use a recording player. Debug builds write one Logcat line per event under the tag `PresentaHaptics` (`adb logcat -s PresentaHaptics:D`); release builds write nothing. How the pulses feel can only be judged on a physical watch (ADR-60, ADR-61).
 - **Screen on:** the screen stays on while a session is running or paused and Control is showing (`KeepScreenOn`, the view flag, no wake lock; ADR-62).
@@ -19,7 +19,7 @@ Phase 6 added:
 How the app connects:
 
 - Default address `ws://10.0.2.2:8765` (the emulator's alias for the PC). First launch shows the pairing screen "Vincular": enter the six-digit code shown by the companion, one digit at a time. The code is remembered.
-- Cleartext `ws://` is allowed only for `10.0.2.2`, `localhost`, and `127.0.0.1` (`network_security_config`). **A physical watch on a LAN address is not supported yet** (Phase 8).
+- Cleartext `ws://` is allowed only for `10.0.2.2`, `localhost`, and `127.0.0.1` (`network_security_config`). **A physical watch on a LAN address is not supported yet** (deferred, see `../docs/roadmap.md`).
 - To use `adb reverse tcp:8765 tcp:8765` with `localhost` on a **debug** build:
   `adb shell run-as com.presenta.wear sh -c "echo ws://localhost:8765 > files/server_address.txt"`, then restart the app. Release builds ignore this file.
 - **Optional AI text (Phase 10):** when the companion's recommendation carries a short `freeText`, the alert state shows it (two lines at most, then an ellipsis) instead of the usual wording of the recommendation; the pace pill under the clock never changes. A missing, blank, control-character or longer-than-80 text falls back to the usual wording. No new strings. See ADR-78.
@@ -34,7 +34,7 @@ Manual testing: `../docs/validation/validation-guide.md` (the tests) and `../doc
 3. Compose previews: open `app/src/main/kotlin/com/presenta/wear/ui/preview/Previews.kt` and use the Compose preview panel. It shows every screen and state on Large Round and Small Round.
 4. Rendered screenshots of all states are in `../docs/ui-previews/` (`large-round/` and `small-round/`).
 
-The emulator is not needed for anything in this phase.
+The emulator is needed only to run the app against the companion (see `../docs/manual-test-guide.md`); previews and tests need none.
 
 ## Commands
 
