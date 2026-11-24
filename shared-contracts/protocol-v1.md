@@ -162,7 +162,7 @@ Mapping from domain failures: `invalidState` maps to `invalidState`, `slideOutOf
 - **Key first, counter second:** when "send keys" is on, the companion delivers the key to the confirmed presentation window first and moves the counter only if delivery succeeded. If delivery fails, `command.result` carries `targetWindowUnavailable` or `keyDeliveryFailed`, the counter keeps its previous value, and the session continues. `session.start` is answered with `targetWindowUnavailable` when keys are on and no usable presentation window exists; with keys off no window is needed.
 - **Finish:** on `session.finish`, and equally when a session ends while paused or by disconnection, the companion saves the record automatically, sends `session.summary`, then sends `state.update` with `session: null`. There is no save command.
 - **History:** `history.list` is answered by `history.list.result`.
-- **Heartbeat (recommended values):** the watch sends `ping` about every 2 seconds. Either side treats the connection as lost after about 5 seconds without any message. Final values are set in Phases 4 and 8.
+- **Heartbeat:** the watch sends `ping` about every 2 seconds (the shipped watch sends one every 1.5 s) and treats 3 seconds of silence as a lost connection, so a loss is noticed within about 3.5 seconds (the product target is 5 seconds). The companion closes a connection that is silent for 15 seconds (configurable). See ADR-38 and ADR-48.
 - **Disconnection:** a running session keeps running when the watch disconnects. A reconnecting watch sends `hello` and immediately receives the current state in `hello.accepted`. A new valid connection replaces the previous one.
 
 ## Time handling
