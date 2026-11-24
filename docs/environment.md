@@ -19,7 +19,7 @@ Results of read-only checks on the development machine. Nothing was installed.
 | Attached devices | None (`adb devices` listed no devices) |
 | .NET SDK | 10.0.400 (`dotnet --list-sdks`) |
 | .NET runtimes | Microsoft.NETCore.App 10.0.11, Microsoft.AspNetCore.App 10.0.11, Microsoft.WindowsDesktop.App 10.0.11 |
-| WPF | Windows Desktop runtime 10.0.11 and the `Microsoft.WindowsDesktop.App.Ref` pack directory are present. `dotnet workload list` shows no workloads installed, and none is needed for WPF on .NET 10. Actual project creation was not attempted, so a successful WPF build is not yet confirmed. |
+| WPF | Windows Desktop runtime 10.0.11 and the `Microsoft.WindowsDesktop.App.Ref` pack directory are present. `dotnet workload list` shows no workloads installed, and none is needed for WPF on .NET 10. The companion's WPF project builds with only the .NET SDK (confirmed by `dotnet build -warnaserror` inside `scripts/verify-all.ps1`). |
 | Gradle | Not on `PATH`; the project Gradle wrapper will be used |
 
 Notes:
@@ -29,6 +29,6 @@ Notes:
 
 ## Prerequisites to install
 
-- None blocking were identified for Phases 1–4.
+- None. Everything the project needs is installed; `scripts/demo-preflight.ps1` rechecks it before a demo.
 - Optional: add `%LOCALAPPDATA%\Android\Sdk\platform-tools` and `emulator` to `PATH` for convenience.
-- Optional: a Small Round Wear OS AVD (about 192 dp) for the small-screen check in Phase 9.
+- Optional: a Small Round Wear OS AVD (about 192 dp) for the optional small-screen check (row 83 of the validation guide).
