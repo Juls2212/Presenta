@@ -1,93 +1,128 @@
 # Roadmap
 
-Constraint: the user cannot run the app manually until Phase 5. Phases 1–4 are verified by automation only.
+The roadmap records what each phase delivered and the real final state. Every phase was verified by automation; **no phase has a manual result yet**: the manual campaign (the full guide, or at least the 10-minute smoke test) is the one open step. Test counts quoted in a phase are the counts at the end of that phase; the current totals are in [validation/automated-run-latest.md](validation/automated-run-latest.md).
 
-| # | Phase | Depends on |
+## Final state at a glance
+
+| Item | State |
+|---|---|
+| Companion tests (default run) | 1138 pass, 12 opt-in tests skipped |
+| Watch unit tests | 270 pass, lint 0 errors |
+| Cross-stack tests (opt-in) | 13 pass |
+| Manual validation | **Not run.** Full guide: [validation/validation-guide.md](validation/validation-guide.md) (120 numbered rows, 12 visual checks). Minimum: [validation/smoke-test.md](validation/smoke-test.md). |
+| Demo | [delivery/demo-script.md](delivery/demo-script.md) and `scripts/demo-preflight.ps1` |
+| Accessibility | [validation/accessibility-report.md](validation/accessibility-report.md) (automated evidence only) |
+
+## Phases
+
+| # | Phase | State |
 |---|---|---|
-| 1 | Foundations | none |
-| 2 | Protocol v1 and C# domain core | 1 |
-| 3 | Wear OS UI with fake data | 1 (2 for message shapes) |
-| 4 | Windows companion | 2 |
-| 5 | First runnable milestone | 3, 4 |
-| 6 | Alerts and recommendations end to end | 5 |
-| 7 | Full history flow | 5 |
-| 8 | Robustness | 6, 7 |
-| 9 | Accessibility, QA, demo | 8 |
-| 10 | Optional external AI provider | 9 |
+| 1 | Foundations | Done |
+| 2 | Protocol v1 and C# domain core | Done, automated |
+| 3 | Wear OS UI with fake data | Done, automated; the previews still await your review |
+| 4 | Windows companion | Done, automated |
+| 5 | First runnable milestone (watch wired to the companion) | Done, automated; the manual run is yours |
+| 5.1 | Slide control targeting | Done, automated and opt-in desktop tests |
+| 6 | Alerts end to end, haptics, screen on, safe shutdown, history dates | Done, automated |
+| 7a | Validation kit | Done |
+| 7b-1 | Real PowerPoint key delivery diagnostics | Done, automated; PowerPoint itself not run |
+| 7 | Full manual validation campaign | **Open: yours to run** |
+| 8 | Robustness and usability (part done; physical watch deferred) | Done for the listed items, automated |
+| 10 | Optional AI wording (10b request shape, 10c local `.env` launcher) | Done, automated; no real provider called |
+| 9 | Delivery kit: final documentation, demo script, preflight, smoke test, accessibility report | Done |
+| 11 | Desktop companion redesign: navigation rail, six pages, design tokens, glass look (native WPF) | Done, automated; the look on your monitor is yours to check (guide rows 110 to 118) |
+| 12 | Release artifacts: self-contained Windows package and Wear OS debug APK in `releases/` | Built and checked without running them; the clean-unzip and emulator tests are yours |
+| 13 | Application icon, rail logo, Inicio layout, verified window status | Done, automated; the look is yours to check (guide rows 119 and 120) |
+
+(The numbers 9 and 10 were built in the order 10, then 9, because the AI work was ready first. Phase 10 below was first planned as an `IRecommendationProvider` behind the rules; what shipped is the enrichment of the text only, so the deterministic provider is never replaced.)
 
 ## Phase 1: Foundations
 
 - **Goal:** Structure, decisions, environment check, mockup intake.
-- **Done when:** Documentation files exist, are consistent, and the verification searches pass. No source or build files.
-- **Validation:** File and tree listing, forbidden-term search, traceability check, Mermaid re-read.
+- **State:** Done. Documentation files, no source.
 
 ## Phase 2: Protocol v1 contracts and C# domain core
 
 - **Goal:** Message schemas (including `session.summary`), session engine, timer, slide counter, pace, alert rules, deterministic recommendations.
-- **Done when:** Schemas cover every message; domain behavior matches the ADRs; all tests pass.
-- **Validation:** `dotnet test` with unit tests (fake time) and contract tests against the JSON Schemas.
-- **Status:** Done. `dotnet build windows-companion/Presenta.Companion.sln -warnaserror` succeeds with 0 warnings and `dotnet test` passes 327 tests (126 domain, 201 protocol). Delivered: `shared-contracts/protocol-v1.md`, 21 schemas, valid and invalid examples, `Presenta.Domain`, `Presenta.Protocol`, and their test projects. Nothing here has run against a real socket, keyboard, or watch; that starts in Phases 4 and 5.
+- **State:** Done. 21 schemas, valid and invalid examples, `Presenta.Domain`, `Presenta.Protocol`; 327 tests at the end of the phase (126 domain, 201 protocol). Nothing ran against a socket, keyboard or watch.
 
 ## Phase 3: Wear OS UI with fake data
 
-- **Goal:** Design system, navigation, all screens and states (normal, alert, paused, overtime, disconnected, reconnecting, finished, history, empty history, slide selector, finish confirmation).
-- **Done when:** Every screen in `ui-direction.md` renders on Large Round and Small Round, with Spanish strings in resources.
-- **Validation:** Gradle build, JVM Compose UI tests, screenshot tests, and previews reviewed by the user.
-- **Status:** Built and verified by automation; the previews still await your review. `assembleDebug`, `testDebugUnitTest` (87 tests passing), and `lintDebug` (0 errors) succeed, and 44 screenshots (22 states on Large and Small Round) are in `docs/ui-previews/`. Everything runs on fake data behind `PresentaRepository`. Nothing has run on an emulator or a watch, and there is no networking, DataStore, or haptics yet. Open points: the derived screens need your approval, and the progress-ring meaning is undecided.
+- **Goal:** Design system, navigation, all screens and states on Large Round and Small Round with Spanish strings in resources.
+- **State:** Built and verified by automation (87 JVM tests, lint 0 errors, 44 screenshots in `docs/ui-previews/`, 52 now with the four pairing states). The derived screens await your approval; the progress ring's meaning was later fixed as elapsed time (Phase 5).
 
 ## Phase 4: Windows companion
 
 - **Goal:** WPF shell, Kestrel WebSocket server, pairing, keyboard interface (SendInput and fake), SQLite history.
-- **Done when:** Server, pairing, session flow, key rules, and history work in-process.
-- **Validation:** `dotnet build` and `dotnet test` with in-memory integration tests (real WebSocket client, fake keyboard, fake time).
-- **Status:** Built and verified by automation. `dotnet build windows-companion/Presenta.Companion.sln -warnaserror` succeeds with 0 warnings and `dotnet test` passes 446 tests (domain 126, protocol 201, persistence 15, server 65, Windows keyboard 7, view models 32). The WPF project builds from the command line with only the .NET SDK, and the built app was started, answered a pairing attempt on a real socket, created its database, and exited cleanly. Not verified: real key injection, how the window looks, a physical watch or the emulator, and the Windows Firewall. A draft `manual-test-guide.md` is ready for Phase 5.
-
-## Phase 5.1: Slide control targeting
-
-- **Goal:** Fix the defect found in the first manual run: keys went to the foreground window instead of the presentation.
-- **Status:** Built and verified by automation and by the opt-in desktop test on this machine (real windows, separate processes). Pending: your manual run with PowerPoint (rows 30 to 42 of `validation/validation-guide.md`).
+- **State:** Built and verified by automation (446 tests at the end of the phase). The built app was started once, answered a pairing attempt on a real socket and exited cleanly.
 
 ## Phase 5: First runnable milestone
 
-- **Goal:** Watch WebSocket client, connection states, setup, start, next/previous with real keys, timer and counter.
-- **Done when:** The user can run the companion and the emulator and drive a real presentation.
-- **Validation:** Manual test guide (first manual tests), plus all automated suites green.
-- **Status:** Built and verified by automation; **the manual run is yours to do** with `docs/validation/validation-guide.md`. The watch now has a real repository (OkHttp WebSocket, protocol v1, DataStore, a pairing screen, heartbeat with loss detection in at most 3.5 s, capped reconnect backoff, commands never queued, an elapsed-time ring). `assembleDebug`, `testDebugUnitTest` (203 tests), `lintDebug` (0 errors) pass, and so do `dotnet build -warnaserror` and `dotnet test` (446 tests); the opt-in `:app:crossStackTest` (4 tests) runs the real watch client against the real companion server. Not verified: anything on the emulator or a physical watch, real key presses into a slideshow, how the screens look on real hardware, and latency and loss detection on a real network (RNF 03, RNF 04). A physical watch on a LAN address is not supported yet (ADR-46, Phase 8).
+- **Goal:** Watch WebSocket client, connection states, setup, start, next and previous with real keys, timer and counter.
+- **State:** Built and verified by automation (203 watch tests, 446 companion tests, 4 cross-stack tests). The watch has a real repository (OkHttp WebSocket, protocol v1, DataStore, a pairing screen, heartbeat with loss detection in at most 3.5 s, capped reconnect backoff, commands never queued).
+
+## Phase 5.1: Slide control targeting
+
+- **Goal:** Fix the defect of the first manual run: keys went to the foreground window instead of the presentation.
+- **State:** Built and verified by automation and by the opt-in desktop tests (real windows in separate processes). The companion aims keys at a chosen window after confirming it is in front, or presses nothing.
 
 ## Phase 6: Alerts and recommendations end to end
 
-- **Goal:** Alert rules and recommendations visible on the watch with haptics.
-- **Done when:** Alert state appears and clears correctly with controls usable (RF 10, RF 11).
-- **Validation:** Automated rule tests; manual check of visual and haptic alerts.
-- **Status:** Built and verified by automation. Haptics through an abstraction (four patterns, one per new alert identified by the new `sequence` field, none on repeats, acknowledgments, or reconnections, a debug-only Logcat line per event); the exact second of every alert for three example sessions asserted in domain tests and written into `validation/validation-guide.md`; the screen stays on during a session; closing the companion during a session asks first and saves one interrupted record; history dates read "Hoy", "Ayer", "08 Oct". `DevHost --time-scale` lets the opt-in cross-stack test see every alert kind from the real server in seconds. Counts: companion 574 tests, watch 234, cross-stack 6. **Not verified:** how the vibration feels (needs a physical watch), anything on the emulator, how the closing question looks, and the rows 43 to 68 of the validation guide, which are yours to run.
+- **Goal:** Alert rules and recommendations visible on the watch, with haptics.
+- **State:** Built and verified by automation (574 companion tests, 234 watch tests, 6 cross-stack at the end of the phase): haptic patterns through an abstraction, the exact second of every alert for example plans asserted and written into the guide, the screen kept on during a session, a question when closing the companion during a session, history dates. How the vibration feels needs a physical watch.
 
 ## Phase 7: Full manual validation campaign
 
-- **Goal:** Validate the whole product by hand against the seven acceptance criteria: auto-save, summary, history, reconnection, alerts, targeting, and the visual review of the derived screens. (The history flow itself was built earlier: Phases 4 to 6.)
-- **Done when:** The sign-off table of `validation/validation-guide.md` is filled in and accepted.
-- **Validation:** The user runs `validation/validation-guide.md`; the automated side is `scripts/verify-all.ps1`.
-- **Phase 7a (the validation kit):** done. The consolidated guide (rows 1 to 85, visual checks V1 to V12, defects log, sign-off), debug-only timing diagnostics on both sides (`PresentaTiming`), cross-stack tests that measure loopback latency and loss detection, `scripts/verify-all.ps1` (writes `validation/automated-run-latest.md`) and `scripts/check-guide-strings.ps1`. Counts at the end of 7a: companion 576 tests (plus 5 opt-in desktop tests), watch 238, cross-stack 8.
+- **Goal:** Validate the whole product by hand against the seven acceptance criteria.
+- **Phase 7a (the validation kit):** done: the consolidated guide, debug-only timing diagnostics, cross-stack timing tests, `verify-all.ps1`, `check-guide-strings.ps1`.
+- **Phase 7b-1:** done: every key failure says why, "Copiar diagnóstico" produces a report without pressing any key, and a window owned by the chosen one counts as in front (ADR-66). Real PowerPoint was not run.
+- **State of the campaign:** **open.** The sign-off table of the guide is empty. The recommended minimum is [validation/smoke-test.md](validation/smoke-test.md).
 
 ## Phase 8: Robustness
 
-- **Status:** The usability and resilience part is done and verified by automation (ADR-67 to ADR-71): automatic window choice and a warning for the non-slide-show PowerPoint window, a crash-safe active session recovered exactly once, an optional remembered pairing code, a watch that never gives up reconnecting during a session, and a single companion instance. Counts: companion 712 tests (plus 11 opt-in desktop), watch 250, cross-stack 11. Still open from the original goal: a physical watch on a LAN address and the network security configuration, which this phase did not touch.
-- **Goal:** Reconnection, connection loss without ending the session, latency targets, network security config.
-- **Done when:** RNF 03 and RNF 04 targets are met and the grace-period behavior works (RF 15).
-- **Validation:** Fake-time tests, manual network interruption tests, latency measurements.
+- **Goal:** Reconnection, connection loss without ending the session, latency targets, network security configuration, usability hardening.
+- **State:** Done and verified by automation for ADR-67 to ADR-71: automatic choice of the only slide show and a warning for the other PowerPoint window, a crash-safe active session recovered exactly once, an optional remembered pairing code, a watch that never gives up during a session, a single companion instance. 712 companion tests, 250 watch tests, 11 cross-stack at the end of the phase.
+- **Deferred:** see the next section.
 
-## Phase 10: Optional AI wording (done ahead of Phase 9)
+## Phase 10: Optional AI wording
 
-- **Status:** Built and verified by automation (ADR-72 to ADR-79): a provider-agnostic HTTP client (`Presenta.Ai`), a background enricher with cache, limits, circuit breaker and sanitation, the "Recomendaciones con IA" section, and the watch showing `freeText` in the alert pill. Counts: companion 906 tests (plus 11 opt-in desktop), watch 269, cross-stack 13. Not verified: any live provider.
+- **Goal:** An optional external provider that words the recommendation text, off by default, with the deterministic wording as the fallback.
+- **State:** Built and verified by automation (ADR-72 to ADR-80): a provider-agnostic HTTP client (`Presenta.Ai`), a background enricher with cache, rate limits and circuit breaker, sanitation, the "Recomendaciones con IA" card, and the watch showing `freeText` in the alert pill.
+  - **10b:** request shape for current OpenAI chat models (`max_completion_tokens`, no temperature by default, optional settings by environment variables), adaptive retry once when the provider rejects a parameter, and a distinct status when the model returns no text (ADR-80).
+  - **10c:** `.env.example` and `scripts/run-companion.ps1` to load the settings for one run.
+  - **Not verified:** any call to a real provider.
 
-## Phase 9: Accessibility, final QA, demo preparation
+## Phase 9: Delivery kit
 
-- **Goal:** Touch targets, contrast, small-screen checks, consistent states, demo script.
-- **Done when:** Checklists pass and a demo run completes without errors.
-- **Validation:** Accessibility checklist, full manual run, regression suites.
+- **Goal:** A final documentation pass and what is needed to run the demo and a short manual check.
+- **State:** Done: `README.md` rewritten with the requirements coverage matrix, this roadmap, [delivery/demo-script.md](delivery/demo-script.md), `scripts/demo-preflight.ps1` (run for real, read-only), [validation/smoke-test.md](validation/smoke-test.md), [validation/accessibility-report.md](validation/accessibility-report.md), a documentation audit (stale counts and statements corrected), and a full regression with the guide-strings checker extended to the new documents. No product code was changed; candidate defects found while reading are listed in the delivery report and not fixed.
 
-## Phase 10: Optional external AI provider
+## Deferred items
 
-- **Goal:** An external provider behind `IRecommendationProvider`.
-- **Done when:** The provider is optional, off by default, and the rule-based provider remains the fallback.
-- **Validation:** Provider contract tests with a fake provider; manual check. Requires a separate decision about credentials and privacy.
+| Item | Why it is deferred | What it needs |
+|---|---|---|
+| **A physical watch over the LAN** | The watch allows cleartext only to `10.0.2.2`, `localhost` and `127.0.0.1` (ADR-46 and the network security configuration); the companion listens on all interfaces only with the switch "Permitir reloj físico en la red local". No device was available. | An address that can be set on the watch (or a build-time setting), a network security configuration that allows it, and a physical Wear OS watch for the test. |
+| **Address editing on the watch** | Typing an address on a round screen was out of scope (ADR-45); the address is `ws://10.0.2.2:8765`, with a debug-only override file. | A design for entering or choosing an address (for example a list of discovered computers), then tests. |
+| **Windows 10 verification** | Only a Windows 11 machine was available. The code uses documented Win32 calls that exist in Windows 10. | Run row 84 of the validation guide on a Windows 10 computer. |
+| **Manual campaign results** | Nobody has run the guide yet. | Run the smoke test first, then the full guide; fill in the results sheet and the sign-off. |
+| **A real AI provider** | No key was used by any automated check. | Run rows 103 and 108 of the guide with your own key. |
+| **Real TalkBack and real vibration** | No physical watch. | See the accessibility report, section 8. |
+| **PowerPoint full screen, several monitors, administrator windows, browser-based slides** | Not exercised with the real program. | Rows 33 to 41 of the guide (the first two PowerPoint cases), others untested. |
 
+## Phase 11: Desktop companion redesign
+
+- **Goal:** Replace the one-page window by the approved redesign (`docs/mockups/presenta-escritorio-v3.html`) without changing any behavior.
+- **State:** Done and verified by automation (ADR-82): a rail with six pages (Inicio, Vincular, Ventana, IA y alertas, Actividad, Configuración), status dots, the checklist and live session of Inicio, the pairing digits and diagram, the grouped window list, the didactic alert timeline taken from the domain's thresholds, design tokens, and an offscreen-rendered UI test project. Cut: the real blur backdrop and the page transition. Not shown: the number of alerts raised (not in the state the window receives).
+- **Not verified:** how the window looks on your screen, at 125% and 150%, and in Windows high contrast (rows 110 to 118).
+
+## Phase 12: Release artifacts
+
+- **Goal:** Downloadable, ready-to-run files so the course instructor does not need to build anything.
+- **State:** Built and checked without running them (see `docs/delivery/release.md`): `releases/Presenta-Companion-win-x64.zip` (self-contained, 77.7 MB), `releases/Presenta-Wear.apk` (debug build, real repository), `SHA256SUMS.txt` and the Spanish `LEEME.md`. No product source changed.
+- **Not verified:** starting the unzipped companion and installing the APK on the emulator (checklist in `release.md`); committing and publishing is yours.
+
+## Phase 13: Icon and visual polish
+
+- **Goal:** Give the companion its icon (executable, title bar, taskbar, rail logo), balance the Inicio layout, and show the window row as successful only after a verification in this run.
+- **State:** Done and verified by automation (ADR-83); release package rebuilt with the icon and without the Release warning override; the watch app file is unchanged.
+- **Not verified:** how the icon and layout look on your screen (guide rows 119 and 120).
