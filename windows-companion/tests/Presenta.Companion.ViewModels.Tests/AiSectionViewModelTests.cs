@@ -80,7 +80,7 @@ public class AiSectionViewModelTests
     [Fact]
     public async Task While_a_request_is_open_it_says_working_and_afterwards_shows_the_last_text()
     {
-        var (vm, ai, client, _) = Make();
+        var (vm, ai, client, time) = Make();
         client.Hold = new TaskCompletionSource();
         vm.Enabled = true;
 
@@ -90,10 +90,11 @@ public class AiSectionViewModelTests
         Assert.Equal(AiStatus.Working, vm.Status);
         Assert.Equal(UiText.Get("Ai_Status_Working"), vm.StatusText);
 
+        time.Advance(TimeSpan.FromMilliseconds(2500));
         client.Hold.SetResult();
         await ai.WhenIdleAsync();
         Assert.Equal(AiStatus.Ready, vm.Status);
-        Assert.Equal(UiText.Format("Ai_LastText", "Pick up the pace now"), vm.LastTextLine);
+        Assert.Equal(UiText.Format("Ai_LastTextTimed", 2.5, "Pick up the pace now"), vm.LastTextLine);
     }
 
     [Fact]
@@ -129,6 +130,23 @@ public class AiSectionViewModelTests
     }
 
     [Fact]
+    public async Task An_answer_without_text_has_its_own_status_text_that_names_the_cause_and_is_a_problem()
+    {
+        var (vm, ai, client, _) = Make();
+        vm.Enabled = true;
+        client.Answer = AiTextResult.Fail(AiFailureKind.NoText);
+
+        ai.Apply(Alerting(1));
+        await ai.WhenIdleAsync();
+
+        Assert.Equal(AiStatus.NoText, vm.Status);
+        Assert.Equal(UiText.Get("Ai_Status_NoText"), vm.StatusText);
+        Assert.NotEqual(UiText.Get("Ai_Status_Paused"), vm.StatusText);
+        Assert.True(vm.IsProblem);
+        Assert.False(vm.IsGood);
+    }
+
+    [Fact]
     public async Task Changes_that_happen_on_other_threads_reach_the_window_through_the_dispatcher()
     {
         var time = new ManualTimeProvider();
@@ -147,7 +165,7 @@ public class AiSectionViewModelTests
         ai.Apply(Alerting());
         await ai.WhenIdleAsync();
         dispatcher.RunPending();
-        Assert.Equal(UiText.Format("Ai_LastText", "Pick up the pace now"), vm.LastTextLine);
+        Assert.Equal(UiText.Format("Ai_LastTextTimed", 0.0, "Pick up the pace now"), vm.LastTextLine);
 
         vm.Dispose();
         var posted = dispatcher.PostedCount;
