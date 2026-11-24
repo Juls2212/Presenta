@@ -127,6 +127,69 @@
   <data name="Ai_Status_Working" xml:space="preserve"><value>Pidiendo un texto a la IA…</value></data>
   <data name="Ai_Status_Paused" xml:space="preserve"><value>En pausa por errores: se usan las frases de siempre.</value></data>
   <data name="Ai_Status_InvalidKey" xml:space="preserve"><value>La IA rechazó la clave: se usan las frases de siempre.</value></data>
+  <data name="Ai_Status_NoText" xml:space="preserve"><value>El modelo no devolvió texto: se usan las frases de siempre. Prueba con un modelo de chat que no sea de razonamiento o sube el límite de tokens.</value></data>
   <data name="Ai_LastText" xml:space="preserve"><value>Último texto: {0}</value></data>
+  <data name="Ai_LastTextTimed" xml:space="preserve"><value>Último texto (tardó {0:0.0} s): {1}</value></data>
   <data name="Ai_LastTextNone" xml:space="preserve"><value>Todavía no hay un texto de la IA.</value></data>
+
+  <!-- Phase 11: navigation shell and pages -->
+  <data name="Nav_Label" xml:space="preserve"><value>Secciones</value></data>
+  <data name="Nav_Home" xml:space="preserve"><value>Inicio</value></data>
+  <data name="Nav_Pair" xml:space="preserve"><value>Vincular</value></data>
+  <data name="Nav_Window" xml:space="preserve"><value>Ventana</value></data>
+  <data name="Nav_Ai" xml:space="preserve"><value>IA y alertas</value></data>
+  <data name="Nav_Activity" xml:space="preserve"><value>Actividad</value></data>
+  <data name="Nav_Settings" xml:space="preserve"><value>Configuración</value></data>
+  <data name="Nav_ItemWithStatus" xml:space="preserve"><value>{0}: {1}</value></data>
+  <data name="Home_Title" xml:space="preserve"><value>Preparado, listo, ¡a presentar!</value></data>
+  <data name="Home_Lead" xml:space="preserve"><value>Revisa estos cuatro puntos. Toca uno para ajustarlo.</value></data>
+  <data name="Home_Checklist" xml:space="preserve"><value>Antes de empezar</value></data>
+  <data name="Home_Session" xml:space="preserve"><value>Sesión en curso</value></data>
+  <data name="Home_SlideCaption" xml:space="preserve"><value>diapositiva</value></data>
+  <data name="Home_ElapsedCaption" xml:space="preserve"><value>transcurrido</value></data>
+  <data name="Home_RemainingCaption" xml:space="preserve"><value>quedan</value></data>
+  <data name="Home_OvertimeCaption" xml:space="preserve"><value>de más</value></data>
+  <data name="Home_NoSessionHint" xml:space="preserve"><value>Cuando empieces una presentación desde el reloj, aquí verás el avance.</value></data>
+  <data name="Home_RingName" xml:space="preserve"><value>{0} por ciento del tiempo transcurrido</value></data>
+  <data name="Home_SeeAll" xml:space="preserve"><value>Ver toda la actividad</value></data>
+  <data name="Check_Keys" xml:space="preserve"><value>Teclas</value></data>
+  <data name="Check_Window_Unverified" xml:space="preserve"><value>Falta verificarla: pulsa Verificar para comprobarla</value></data>
+  <data name="Check_Keys_On" xml:space="preserve"><value>Se enviarán solo a esa ventana</value></data>
+  <data name="Check_Keys_Waiting" xml:space="preserve"><value>Falta elegir la ventana de la presentación</value></data>
+  <data name="Check_Watch_Linked" xml:space="preserve"><value>Vinculado con este equipo</value></data>
+  <data name="Check_State_Ok" xml:space="preserve"><value>Listo</value></data>
+  <data name="Check_State_Warning" xml:space="preserve"><value>Requiere atención</value></data>
+  <data name="Check_State_Empty" xml:space="preserve"><value>Pendiente</value></data>
+  <data name="Check_Item" xml:space="preserve"><value>{0}: {1}. {2}</value></data>
+  <data name="Pace_OnTrack" xml:space="preserve"><value>Vas al ritmo previsto</value></data>
+  <data name="Pace_Behind" xml:space="preserve"><value>Vas atrasado</value></data>
+  <data name="Pace_TooFast" xml:space="preserve"><value>Ve más despacio</value></data>
+  <data name="Pace_NotEnoughData" xml:space="preserve"><value>Calculando el ritmo</value></data>
+  <data name="Pair_Title" xml:space="preserve"><value>Vincular el reloj</value></data>
+  <data name="Pair_Lead" xml:space="preserve"><value>Escribe este código en el reloj. Después se conecta solo.</value></data>
+  <data name="Pair_CodeSpoken" xml:space="preserve"><value>Código de vinculación: {0}</value></data>
+  <data name="Pair_Copy" xml:space="preserve"><value>Copiar código</value></data>
+  <data name="Pair_Copied" xml:space="preserve"><value>Copiado</value></data>
+  <data name="Pair_CopyFailed" xml:space="preserve"><value>No se pudo copiar el código</value></data>
+  <data name="Pair_NodeComputer" xml:space="preserve"><value>Este equipo</value></data>
+  <data name="Pair_DiagramName" xml:space="preserve"><value>Reloj, este equipo y presentación</value></data>
+  <data name="Window_Others" xml:space="preserve"><value>Otras ventanas abiertas ({0})</value></data>
+  <data name="Window_ListName" xml:space="preserve"><value>Ventanas de presentación</value></data>
+  <data name="Window_OthersListName" xml:space="preserve"><value>Otras ventanas abiertas</value></data>
+  <data name="Ai_PageLead" xml:space="preserve"><value>Aprende cuándo avisa Presenta y decide si una IA redacta las recomendaciones.</value></data>
+  <data name="Guide_Title" xml:space="preserve"><value>Así te avisa Presenta</value></data>
+  <data name="Guide_Tag" xml:space="preserve"><value>ejemplo didáctico</value></data>
+  <data name="Guide_Minutes" xml:space="preserve"><value>minutos planeados</value></data>
+  <data name="Guide_Up" xml:space="preserve"><value>Subir un minuto</value></data>
+  <data name="Guide_Down" xml:space="preserve"><value>Bajar un minuto</value></data>
+  <data name="Guide_Value" xml:space="preserve"><value>{0} minutos planeados</value></data>
+  <data name="Guide_BarName" xml:space="preserve"><value>Línea de tiempo de una presentación de {0} minutos</value></data>
+  <data name="Guide_RunningOut" xml:space="preserve"><value>Se acaba el tiempo</value></data>
+  <data name="Guide_Critical" xml:space="preserve"><value>Crítico</value></data>
+  <data name="Guide_Overtime" xml:space="preserve"><value>Tiempo excedido</value></data>
+  <data name="Guide_Marker" xml:space="preserve"><value>{0} a los {1}</value></data>
+  <data name="Guide_Note" xml:space="preserve"><value>Es solo una explicación: no inicia ninguna presentación.</value></data>
+  <data name="Activity_Lead" xml:space="preserve"><value>Lo que ha pasado desde que abriste Presenta.</value></data>
+  <data name="Settings_Lead" xml:space="preserve"><value>Opciones que casi nunca hay que tocar.</value></data>
+  <data name="Settings_Tech" xml:space="preserve"><value>Detalles técnicos</value></data>
 </root>
