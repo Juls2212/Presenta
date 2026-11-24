@@ -1,0 +1,2 @@
+612f1940e720ae47fd674a0b866596e3fcbbb5dd15d0ddda3c61b0dfcb369c74  Presenta-Companion-win-x64.zip
+e02ae6ba3fdbab3a05757eb9b42f55859c2356caed1c93d4467c8219ec2e845e  Presenta-Wear.apk
