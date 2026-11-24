@@ -1,6 +1,25 @@
 # Testing strategy
 
-The user cannot run the app manually until Phase 5 (ADR-20). Phases 1–4 are verified by automation only.
+Everything is verified by automation; **no manual result exists yet** (ADR-20 explains why the first phases were automation-only). The manual campaign is [validation/validation-guide.md](validation/validation-guide.md), with a 10-minute subset in [validation/smoke-test.md](validation/smoke-test.md).
+
+## Current totals
+
+From the last `./scripts/verify-all.ps1 -CrossStack` (the current numbers are always in [validation/automated-run-latest.md](validation/automated-run-latest.md)). The per-phase tables below keep the counts of the phase in which each suite was written, so their totals are older than these.
+
+| Suite | Tests |
+|---|---|
+| `Presenta.Domain.Tests` | 138 |
+| `Presenta.Protocol.Tests` | 227 |
+| `Presenta.Persistence.Tests` | 15 |
+| `Presenta.Server.Tests` | 170 |
+| `Presenta.Targeting.Tests` | 77 |
+| `Presenta.Keyboard.Windows.Tests` | 7 |
+| `Presenta.Companion.ViewModels.Tests` | 162 |
+| `Presenta.Companion.App.Tests` (WPF layer, STA, offscreen) | 95 |
+| `Presenta.Ai.Tests` | 247 |
+| **Companion total** | **1138 pass** (plus 11 opt-in desktop tests and 1 opt-in picture export, skipped by default) |
+| Watch unit tests (JVM, Robolectric) | 270 pass, lint 0 errors (below) |
+| Opt-in cross-stack tests (real watch client, real server) | 13 pass |
 
 ## Verification ladder, Phases 1–4
 
@@ -10,6 +29,8 @@ The user cannot run the app manually until Phase 5 (ADR-20). Phases 1–4 are ve
 | 2 | `dotnet build` and `dotnet test`: unit tests for timer, counter, pace, alert rules, and recommendations using a fake clock; contract tests validating sample messages against the JSON Schemas. |
 | 3 | Gradle build; JVM Compose UI tests; screenshot tests on Large Round (about 227 dp) and Small Round (about 192 dp); previews reviewed by the user. |
 | 4 | `dotnet build` and `dotnet test`: in-memory integration tests using a real WebSocket client against an in-process server, a fake keyboard, and fake time; SQLite history tests. |
+
+Watch tests by class (270): `RemotePresentaRepositoryTest` 41, `WireContractTest` 25, `FakePresentaRepositoryTest` 21, `ViewModelTests` 17, `StringMapperTest` 15, `HapticsCoordinatorTest` 16, `PairingUiTest` 14, `SessionReconnectionTest` 12, `ControlStateFactoryTest` 11, `FormattersTest` 10, `PairingViewModelTest` 9, `PresentaFlowTest` 9, `HistoryDatesTest` 8, `PairingStoreTest` 7, `OkHttpIntegrationTest` 7, `AiTipLayoutTest` 6, `PairingFlowTest` 6, `NetworkConfigTest` 5, `RecommendationTextTest` 5, `ContrastTest` 4, `FreeTextWireTest` 4, `RecommendationTipStateTest` 4, `TimingDiagnosticsTest` 4, `AlertStatesTest` 3, `HistoryFlowTest` 2, `KeepScreenOnTest` 2, `ScreenshotTest` 2, `LayoutAccessibilityTest` 1. The opt-in cross-stack classes (`CrossStackTest` 4, `RememberedCodeCrossStackTest` 3, `AlertsCrossStackTest` 2, `TimingCrossStackTest` 2, `AiTextCrossStackTest` 2) run only with `:app:crossStackTest`.
 
 ## Phase 2 test suites
 
@@ -39,7 +60,7 @@ Run from `wear-app/`: `gradlew.bat :app:assembleDebug :app:testDebugUnitTest :ap
 | `ViewModelTests` | 17 | Setup limits and defaults, control commands, selector, finish confirmation, error messages, history loading, app-level summary handling. |
 | `ContrastTest` | 4 | WCAG contrast of every color pair, at least 4.5:1. |
 | `PresentaFlowTest` | 9 | Home to Setup to Control, next and previous, slide selector, pause by long press, alert with Next and Previous enabled, finish by swipe up, summary, history with data and empty, read-only summary, disconnected and reconnecting, failed command, interruption, over-time summary, overtime alert. |
-| `LayoutAccessibilityTest` | 1 | All 22 states on 227 dp and 192 dp at font scales 1.0 and 1.3: text inside the circle, no overlapping texts, every interactive element labelled in Spanish, 48 dp touch targets except the listed ones (ADR-31). |
+| `LayoutAccessibilityTest` | 1 | All states (22 when written, 26 with the pairing screens) on 227 dp and 192 dp at font scales 1.0 and 1.3: text inside the circle, no overlapping texts, every interactive element labelled in Spanish, 48 dp touch targets except the listed ones (ADR-31). |
 | `ScreenshotTest` | 2 | Renders all states on both sizes; with `-Proborazzi.test.record=true` it writes `docs/ui-previews/`. |
 
 What is not automated: how the screens feel on a real watch, rotary input, the real fonts, and anything that needs the companion. Those start in Phase 5.
@@ -194,4 +215,47 @@ Companion: 906 tests in Debug (712 plus 194) and 11 opt-in desktop tests. Watch:
 
 The layout test found a real problem on the way: with a two-line pill Next and Previous lost up to 7 dp of touch size, so the pill with a text uses a smaller font and tighter spacing (ADR-78).
 
-**Not tested:** any real provider. The shape of the request follows the common chat-completions convention and is proven against a local stand-in only.
+## Phase 10b test suites (request shape for current OpenAI chat models)
+
+All of them run against an in-process loopback server or a fake client; no test touches the network or needs a key.
+
+| Suite | What it covers |
+|---|---|
+| `RequestShapeTests` | The default body (`max_completion_tokens` only, no temperature, no effort) as a golden text that still holds only codes and aggregate numbers (no session name, window title, file name, machine or user name); every optional field written when set; each environment variable (token parameter, token limit, temperature, reasoning effort, timeout) with valid, invalid and out-of-range values and the overrides reaching the wire; adaptive retry for a rejected `max_completion_tokens`, a rejected `max_tokens` whose message names both, a rejected temperature, a rejected reasoning effort and a message naming several; the working shape remembered (one request per answer afterwards); a shape that still fails not remembered and never a third request; unrelated 400s, a 400 naming a parameter that was not sent, an empty 400 and a non-JSON 400 not retried; 401, 429 and 5xx on the retry reported as usual; a retry that returns no text; one attempt for the limiter and breaker; the time budget covering the retry; a slow first answer. |
+| `ClientTests` (changed) | A well formed answer with no text (missing, null, empty, blank, finish reason `length`) is `NoText`, apart from the malformed kinds; the new default options. |
+| `EnricherTests` (new cases) | `NoText` falls back to the usual wording, is not asked again for the same situation, keeps its status through the pause until a text arrives, is replaced by a different failure; the safety timeout is above the largest client timeout. |
+| `SecretsTests` (new cases) | The key never in a log through the retry path or an empty answer, and never in a failure result or the current shape. |
+| `AiSectionViewModelTests` (new case) | The no-text status has its own text, is shown as a problem and is not the generic pause text. |
+
+**Not tested:** any real provider. The shape of the request follows the common chat-completions convention and the OpenAI reference (checked for the deprecation of `max_tokens`, `max_completion_tokens` counting reasoning tokens, and the existence of `reasoning_effort`), and is proven against a local stand-in only.
+
+## Phase 9 checks (delivery kit)
+
+No product code changed in this phase, so the suites above are unchanged. What was run: the full regression (`verify-all.ps1 -CrossStack`), the guide-strings checker extended to `smoke-test.md`, `accessibility-report.md` and `delivery/demo-script.md` (every quoted Spanish text must exist in the resource files), the contrast ratios of `accessibility-report.md` recomputed independently, and `scripts/demo-preflight.ps1` run for real (read-only; it reports the tools, the AVD, the port, the presence of the AI variables and the companion build). The preflight needs the emulator and the companion to be stopped or started as the day requires, so its result is a snapshot of the machine, not a test.
+
+## Phase 10c2 checks (AI latency and delivery timing)
+
+All deterministic: fake clock, fake AI client, in process, no network. `LatencyTests` (13): a new alert sequence asks at once even a second after the last request; later requests of the same sequence still wait for the spacing; the cap, the breaker and a refused key still count the first request; a text that arrives during its alert is announced at once (`TextReady`) and shown although the rounded figures drifted, with the latency recorded; a text that arrives after its alert ended is cached and not shown for another situation; a repeated alert uses the cache with zero requests inside the 120 seconds and asks again after them; the cache is cleared at session end; the timing record has the expected fields and no answer, prompt or presentation name; `.env.example` has the two recommended lines and no key. `AiRecommendationTests` gained one end-to-end test (the pushed state keeps the alert sequence). `HapticsCoordinatorTest` gained one (a free text appearing mid-alert does not vibrate again). `AiSectionViewModelTests` assertions changed to the new line with the latency; `RequestShapeTests` asserts the attempts count. The real time a provider takes is measured by hand (row 109 of the validation guide).
+
+## Phase 11 checks (desktop companion redesign)
+
+No server, protocol, domain, persistence, AI, targeting, keyboard or watch code changed, so those suites are unchanged (138, 227, 15, 170, 77, 7, 247 and the watch's 270). New and changed:
+
+| Suite | Tests | What it proves |
+|---|---|---|
+| `Presenta.Companion.ViewModels.Tests` (`DesktopRedesignTests`) | +43 | Navigation: starts on Inicio, one command per section, only one item selected, Configuración alone at the bottom. Status dots (absent, off, ok, warning) for Vincular, Ventana and IA y alertas. The checklist: each of the four rows in ok, warning and empty, the subtitle of each, and that each row leads to its page. Inicio: empty state versus a live session (slide, elapsed, remaining, percent, pace, pause, overtime, cleared at the end). Recent activity: newest three, same lines as the full list, tones. Pairing digits, copy and its failure. The grouped window list: suggested first, other PowerPoint next, the rest behind the expander, no window lost or repeated, a choice in any group goes through the same selection and opens the expander. The didactic markers equal `SessionOptions` for 1, 2, 15 and 60 minutes and equal the moment a real `PresentationSession` raises each alert; the stepper limits; the guide touches nothing; every new string exists. |
+| `Presenta.Companion.App.Tests` (new project, `net10.0-windows`) | 95 + 1 opt-in | `UiSmokeTests`: on an STA thread and never shown, the real shell with fake services visits the six pages; each page has its key controls; every button, switch and list row has a spoken name and is at least 32 px in both directions. `DesignTokenTests`: 80 contrast pairs computed from the token file (text 4.5:1, graphics 3:1, over every surface they sit on), the palette equals the mockup (except the dim text, see ADR-82), no color value outside the token file and none built in code, no user-visible text or accent in XAML or app code, and every brush a page uses exists. `RenderPagesTests` (opt-in with `PRESENTA_DESKTOP_TESTS=1`): renders each page to `docs/ui-previews/desktop/` from the laid-out controls into a bitmap; it creates no window. |
+| `Presenta.Companion.ViewModels.Tests` (`AiSectionViewModelTests`, `MainViewModelTests`, ...) | 0 changed | Existing tests were not changed. `MainViewModel` got new optional constructor parameters and new properties only. |
+
+Run the picture export only when you want new pictures: `$env:PRESENTA_DESKTOP_TESTS=1; dotnet test windows-companion/tests/Presenta.Companion.App.Tests --filter RenderPagesTests`. It never shows a window. Visual fidelity on a real monitor, scaling at 125% and 150% and Windows high contrast are checked by hand (guide rows 110 to 118).
+
+## Phase 13 checks (icon, Inicio layout, verified window status)
+
+Only the companion window layer and one display property changed; the server, protocol, domain, persistence, AI, targeting, keyboard and watch suites are unchanged (138, 227, 15, 170, 77, 7, 247 and the watch's 270). The one source touch outside the window layer is the `#if DEBUG` scoping of a local variable in `AiRecommendationEnricher.cs`, covered by the existing 247 tests in Debug and by a clean Release build.
+
+| Suite | Tests | What it proves |
+|---|---|---|
+| `Presenta.Companion.ViewModels.Tests` (`DesktopRedesignTests`) | +3, 2 adapted | A saved but unverified window shows the warning and the verify hint on the row and on the rail dot; verifying turns both to success; choosing another window, losing the window or a failed verification brings the warning back; with no target the row stays empty and without a window system the dot is absent. The two existing tests that expected success for an automatic choice now verify first (the rule changed on purpose). |
+| `Presenta.Companion.App.Tests` | 0 | Unchanged and passing: the smoke tests still lay out the six pages, and the token guards pass with the new brush and the logo (no color value outside `Tokens.xaml`). |
+
+The icon file (valid ICO with seven sizes), the executable's icon resource (seven images, read as a data file, never run) and the embedded window icon were inspected during packaging (`docs/delivery/release.md`). How the icon looks on screen is checked by hand (guide row 119).
