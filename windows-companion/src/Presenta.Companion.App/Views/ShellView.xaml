@@ -1,0 +1,94 @@
+<UserControl x:Class="Presenta.Companion.App.Views.ShellView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Presenta.Companion.ViewModels;assembly=Presenta.Companion.ViewModels"
+             xmlns:views="clr-namespace:Presenta.Companion.App.Views">
+    <UserControl.Resources>
+        <!-- One view per page, chosen by the type of the page view model -->
+        <DataTemplate DataType="{x:Type vm:HomePageViewModel}">
+            <views:HomePage />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:PairPageViewModel}">
+            <views:PairPage />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:WindowPageViewModel}">
+            <views:WindowPage />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:AiPageViewModel}">
+            <views:AiPage />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ActivityPageViewModel}">
+            <views:ActivityPage />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:SettingsPageViewModel}">
+            <views:SettingsPage />
+        </DataTemplate>
+
+        <DataTemplate x:Key="NavItemTemplate" DataType="{x:Type vm:NavItemViewModel}">
+            <Button Style="{StaticResource NavButton}" Command="{Binding Command}"
+                    AutomationProperties.Name="{Binding AutomationName}" />
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="232" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Navigation rail: arrow keys move between the items, Enter or Space opens one -->
+        <Border Grid.Column="0" Background="{DynamicResource RailBrush}" BorderBrush="{DynamicResource GlassLineBrush}" BorderThickness="0,0,1,0">
+            <Grid Margin="12,18,12,16" KeyboardNavigation.DirectionalNavigation="Cycle" KeyboardNavigation.TabNavigation="Once"
+                  AutomationProperties.Name="{Binding Labels.NavLabel}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="14,0,0,22">
+                    <ContentControl Style="{StaticResource BrandLogo}" Width="32" Height="32" Margin="0,0,10,0" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding Labels.Title}" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource InkBrush}"
+                               VerticalAlignment="Center" AutomationProperties.HeadingLevel="Level1" />
+                </StackPanel>
+
+                <ItemsControl Grid.Row="1" ItemsSource="{Binding Navigation.TopItems}" ItemTemplate="{StaticResource NavItemTemplate}" Focusable="False" />
+                <ItemsControl Grid.Row="3" ItemsSource="{Binding Navigation.BottomItems}" ItemTemplate="{StaticResource NavItemTemplate}" Focusable="False" />
+            </Grid>
+        </Border>
+
+        <!-- Content: server state on top, one page below -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Margin="30,14,30,0">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Border CornerRadius="{StaticResource RadiusPill}" Background="{DynamicResource GlassBrush}" BorderBrush="{DynamicResource GlassLineBrush}"
+                            BorderThickness="1" Padding="12,6" Margin="0,0,10,0">
+                        <StackPanel Orientation="Horizontal">
+                            <ContentControl Style="{StaticResource DotMark}" Content="{Binding IsServerRunning}" Margin="0,0,8,0" />
+                            <TextBlock Text="{Binding ServerStatusText}" Style="{StaticResource Body}" FontSize="14" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                    <Button Content="{Binding ToggleServerText}" Command="{Binding ToggleServerCommand}" Style="{StaticResource GlassButton}" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0"
+                            Visibility="{Binding HasServerError, Converter={StaticResource BoolToVisibility}}">
+                    <ContentControl Style="{StaticResource DotMark}" Content="{x:Static vm:ActivityTone.Bad}" Margin="0,0,8,0" VerticalAlignment="Top" />
+                    <TextBlock Text="{Binding ServerError}" Foreground="{DynamicResource RedBrush}" FontSize="13.5" TextWrapping="Wrap" MaxWidth="560"
+                               AutomationProperties.LiveSetting="Assertive" />
+                </StackPanel>
+            </StackPanel>
+
+            <ScrollViewer x:Name="PageScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                <ContentControl Content="{Binding Navigation.CurrentPage}" Padding="{StaticResource PagePadding}" MaxWidth="980"
+                                MinHeight="{Binding ViewportHeight, ElementName=PageScroll}"
+                                HorizontalAlignment="Stretch" IsTabStop="False" />
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</UserControl>
