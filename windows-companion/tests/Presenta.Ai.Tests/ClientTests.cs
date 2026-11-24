@@ -108,7 +108,7 @@ public class ClientTests
         Assert.Equal("/v1/chat/completions", request.Path);
         Assert.Equal("Bearer " + Key, request.Authorization);
         Assert.StartsWith("application/json", request.ContentType, StringComparison.Ordinal);
-        Assert.Equal(OpenAiCompatibleClient.BuildRequestJson("test-model", Prompt(), 32, 0.2), request.Body);
+        Assert.Equal(OpenAiCompatibleClient.BuildRequestJson("test-model", Prompt(), new AiRequestShape(AiTokenLimitParameter.MaxCompletionTokens, AiDefaults.MaxTokens, null, null)), request.Body);
     }
 
     [Fact]
@@ -203,16 +203,28 @@ public class ClientTests
     [InlineData("{\"choices\":[]}")]
     [InlineData("{\"choices\":\"x\"}")]
     [InlineData("{\"choices\":[{}]}")]
-    [InlineData("{\"choices\":[{\"message\":{}}]}")]
-    [InlineData("{\"choices\":[{\"message\":{\"content\":null}}]}")]
+    [InlineData("{\"choices\":[{\"message\":\"x\"}]}")]
     [InlineData("{\"choices\":[{\"message\":{\"content\":12}}]}")]
-    [InlineData("{\"choices\":[{\"message\":{\"content\":\"\"}}]}")]
     [InlineData("{\"choices\":[{\"message\":{\"content\":\"cut off")]
-    public async Task Malformed_or_empty_answers_are_reported_as_malformed(string body)
+    public async Task Malformed_answers_are_reported_as_malformed(string body)
     {
         var result = await AskAsync((context, _) => LocalAiServer.Reply(context, 200, body));
 
         Assert.Equal(AiFailureKind.Malformed, result.Failure);
+    }
+
+    [Theory]
+    [InlineData("{\"choices\":[{\"message\":{}}]}")]
+    [InlineData("{\"choices\":[{\"message\":{\"content\":null}}]}")]
+    [InlineData("{\"choices\":[{\"message\":{\"content\":\"\"}}]}")]
+    [InlineData("{\"choices\":[{\"message\":{\"content\":\"   \\n \"}}]}")]
+    [InlineData("{\"choices\":[{\"finish_reason\":\"length\",\"message\":{\"role\":\"assistant\",\"content\":\"\"}}]}")]
+    public async Task A_well_formed_answer_without_visible_text_is_reported_as_no_text(string body)
+    {
+        var result = await AskAsync((context, _) => LocalAiServer.Reply(context, 200, body));
+
+        Assert.Equal(AiFailureKind.NoText, result.Failure);
+        Assert.Null(result.Text);
     }
 
     [Fact]
@@ -361,7 +373,8 @@ public class ConfigurationTests
         {
             AiConfiguration.BaseUrlVariable => " https://api.example.com/v1 ",
             AiConfiguration.ModelVariable => "some-model",
-            _ => key,
+            AiConfiguration.ApiKeyVariable => key,
+            _ => null,
         });
 
         Assert.True(result.IsAvailable);
@@ -369,8 +382,11 @@ public class ConfigurationTests
         Assert.DoesNotContain(key, text, StringComparison.Ordinal);
         Assert.DoesNotContain(key, result.ToString(), StringComparison.Ordinal);
         Assert.Contains("some-model", text, StringComparison.Ordinal);
-        Assert.Equal(TimeSpan.FromSeconds(4), result.Options.Timeout);
-        Assert.Equal(32, result.Options.MaxTokens);
+        Assert.Equal(TimeSpan.FromSeconds(8), result.Options.Timeout);
+        Assert.Equal(400, result.Options.MaxTokens);
+        Assert.Equal(AiTokenLimitParameter.MaxCompletionTokens, result.Options.TokenLimitParameter);
+        Assert.Null(result.Options.Temperature);
+        Assert.Null(result.Options.ReasoningEffort);
     }
 
     [Fact]
