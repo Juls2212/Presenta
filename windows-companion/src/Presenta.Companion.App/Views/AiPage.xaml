@@ -1,0 +1,169 @@
+<UserControl x:Class="Presenta.Companion.App.Views.AiPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel>
+        <TextBlock Text="{Binding Title}" Style="{StaticResource PageTitle}" AutomationProperties.HeadingLevel="Level1" />
+        <TextBlock Text="{Binding Lead}" Style="{StaticResource PageLead}" />
+
+        <Border Style="{StaticResource GlassPanel}">
+            <StackPanel>
+                <!-- The optional AI wording (unchanged behavior) -->
+                <StackPanel DataContext="{Binding Main.Ai}" Visibility="{Binding DataContext.Main.HasAi, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="{Binding Title}" Style="{StaticResource SectionHeading}" />
+                    <CheckBox Style="{StaticResource Switch}" Content="{Binding ToggleLabel}"
+                              IsEnabled="{Binding CanToggle}" IsChecked="{Binding Enabled, Mode=TwoWay}" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                        <ContentControl Style="{StaticResource DotMark}" Content="{Binding Status}" Margin="0,0,10,0" VerticalAlignment="Top" />
+                        <TextBlock Text="{Binding StatusText}" MaxWidth="560">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource StatusLine}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsGood}" Value="True">
+                                            <Setter Property="Foreground" Value="{DynamicResource CyanBrush}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsProblem}" Value="True">
+                                            <Setter Property="Foreground" Value="{DynamicResource AmberBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+
+                    <Border Margin="0,16,0,0" Padding="14,12" CornerRadius="12" Background="{DynamicResource ScrimBrush}"
+                            BorderBrush="{DynamicResource AmberBrush}" BorderThickness="3,0,0,0">
+                        <TextBlock Text="{Binding LastTextLine}" Style="{StaticResource Body}" FontSize="14.5" />
+                    </Border>
+                    <TextBlock Text="{Binding PrivacyNote}" Style="{StaticResource Hint}" Margin="0,10,0,0" />
+                </StackPanel>
+
+                <Border Style="{StaticResource Divider}" />
+
+                <!-- The didactic alert timeline. It only explains; it starts nothing. -->
+                <StackPanel DataContext="{Binding Guide}">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Text="{Binding DataContext.Main.Labels.GuideTitle, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                   Style="{StaticResource SectionHeading}" Margin="0,0,10,0" AutomationProperties.HeadingLevel="Level2" />
+                        <TextBlock Text="{Binding DataContext.Main.Labels.GuideTag, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                   Style="{StaticResource Hint}" />
+                    </StackPanel>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="32" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Minutes stepper -->
+                        <StackPanel Grid.Column="0" VerticalAlignment="Top">
+                            <Border CornerRadius="{StaticResource RadiusControl}" Background="{DynamicResource ScrimBrush}"
+                                    BorderBrush="{DynamicResource GlassLineBrush}" BorderThickness="1" Width="190" HorizontalAlignment="Left">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding Minutes}" FontSize="30" FontWeight="SemiBold" Foreground="{DynamicResource InkBrush}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,6"
+                                               AutomationProperties.Name="{Binding MinutesName}" AutomationProperties.LiveSetting="Polite" />
+                                    <Border Grid.Column="1" BorderBrush="{DynamicResource GlassLineBrush}" BorderThickness="1,0,0,0">
+                                        <StackPanel>
+                                            <Button Style="{StaticResource StepButton}" Command="{Binding StepUpCommand}" IsEnabled="{Binding CanStepUp}"
+                                                    Tag="{StaticResource Icon_Up}"
+                                                    AutomationProperties.Name="{Binding DataContext.Main.Labels.GuideUp, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                            <Button Style="{StaticResource StepButton}" Command="{Binding StepDownCommand}" IsEnabled="{Binding CanStepDown}"
+                                                    Tag="{StaticResource Icon_Down}"
+                                                    AutomationProperties.Name="{Binding DataContext.Main.Labels.GuideDown, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+                            </Border>
+                            <TextBlock Text="{Binding DataContext.Main.Labels.GuideMinutes, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                       Style="{StaticResource Hint}" Margin="2,6,0,0" />
+                        </StackPanel>
+
+                        <!-- Timeline bar and its markers -->
+                        <StackPanel Grid.Column="2" AutomationProperties.Name="{Binding BarName}">
+                            <Border x:Name="BarFrame" Height="16" CornerRadius="8" ClipToBounds="True" Margin="0,22,0,10"
+                                    Background="{DynamicResource GlassStrongBrush}">
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Height="16" Background="{DynamicResource OkBrush}">
+                                        <Border.Width>
+                                            <MultiBinding Converter="{StaticResource FractionOfWidth}">
+                                                <Binding Path="CalmFraction" />
+                                                <Binding Path="ActualWidth" ElementName="BarFrame" />
+                                            </MultiBinding>
+                                        </Border.Width>
+                                    </Border>
+                                    <Border Height="16" Background="{DynamicResource AmberBrush}">
+                                        <Border.Width>
+                                            <MultiBinding Converter="{StaticResource FractionOfWidth}">
+                                                <Binding Path="RunningOutFraction" />
+                                                <Binding Path="ActualWidth" ElementName="BarFrame" />
+                                            </MultiBinding>
+                                        </Border.Width>
+                                    </Border>
+                                    <Border Height="16" Background="{DynamicResource OrangeBrush}">
+                                        <Border.Width>
+                                            <MultiBinding Converter="{StaticResource FractionOfWidth}">
+                                                <Binding Path="CriticalFraction" />
+                                                <Binding Path="ActualWidth" ElementName="BarFrame" />
+                                            </MultiBinding>
+                                        </Border.Width>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+
+                            <ItemsControl x:Name="MarkerHost" ItemsSource="{Binding Markers}" MinHeight="140" Focusable="False">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <Grid />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemContainerStyle>
+                                    <Style TargetType="ContentPresenter">
+                                        <Setter Property="HorizontalAlignment" Value="Left" />
+                                        <Setter Property="VerticalAlignment" Value="Top" />
+                                        <Setter Property="Margin">
+                                            <Setter.Value>
+                                                <MultiBinding Converter="{StaticResource MarkerMargin}">
+                                                    <Binding Path="Position" />
+                                                    <Binding Path="ActualWidth" ElementName="MarkerHost" />
+                                                    <Binding Path="Row" />
+                                                </MultiBinding>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ItemsControl.ItemContainerStyle>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Width="140" AutomationProperties.Name="{Binding AutomationName}">
+                                            <Rectangle x:Name="Tick" Width="2" Height="12" Margin="0,0,0,4" Fill="{DynamicResource AmberBrush}" />
+                                            <TextBlock x:Name="Name" Text="{Binding Label}" FontWeight="SemiBold" FontSize="13" TextAlignment="Center"
+                                                       Foreground="{DynamicResource AmberBrush}" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding TimeText}" FontSize="13" TextAlignment="Center" Foreground="{DynamicResource MutedBrush}" />
+                                        </StackPanel>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding Kind}" Value="TimeCritical">
+                                                <Setter TargetName="Tick" Property="Fill" Value="{DynamicResource OrangeBrush}" />
+                                                <Setter TargetName="Name" Property="Foreground" Value="{DynamicResource OrangeBrush}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Kind}" Value="Overtime">
+                                                <Setter TargetName="Tick" Property="Fill" Value="{DynamicResource RedBrush}" />
+                                                <Setter TargetName="Name" Property="Foreground" Value="{DynamicResource RedBrush}" />
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock Text="{Binding DataContext.Main.Labels.GuideNote, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                               Style="{StaticResource Hint}" Margin="0,6,0,0" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>
