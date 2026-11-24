@@ -70,6 +70,8 @@ public class ActiveSessionTests
 
         await client.CommandAsync(Msg.Finish());
 
+        // The command result is sent before the session is saved and the file removed, so wait for both (never assert at once).
+        await Wait.UntilAsync(() => store.Record is null && harness.Memory.Records.Count == 1, "the record to be saved and the file removed");
         Assert.Null(store.Record);
         Assert.Single(harness.Memory.Records);
         Assert.Equal(FinalState.FinishedManually, harness.Memory.Records[0].FinalState);
