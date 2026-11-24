@@ -159,9 +159,9 @@ public class PromptTests
     [Fact]
     public void The_exact_request_body_is_pinned()
     {
-        var body = OpenAiCompatibleClient.BuildRequestJson("test-model", AiPromptBuilder.Build(Situation()), 32, 0.2);
+        var body = OpenAiCompatibleClient.BuildRequestJson("test-model", AiPromptBuilder.Build(Situation()), new AiRequestShape(AiTokenLimitParameter.MaxCompletionTokens, 400, null, null));
 
-        const string expected = "{\"model\":\"test-model\",\"messages\":[{\"role\":\"system\",\"content\":\"You are a concise presentation coach. Reply in Spanish (Colombia) with exactly one sentence of at most 40 characters. No emojis, no quotes, no markdown, no line breaks. Reply with the tip only.\"},{\"role\":\"user\",\"content\":\"Situation: recommendation=SpeedUpSlightly; alert=TimeRunningOut; pace=Behind; slidesRemaining=9; minutesRemaining=5; plannedSlides=20; plannedMinutes=15. Write the tip.\"}],\"max_tokens\":32,\"temperature\":0.2}";
+        const string expected = "{\"model\":\"test-model\",\"messages\":[{\"role\":\"system\",\"content\":\"You are a concise presentation coach. Reply in Spanish (Colombia) with exactly one sentence of at most 40 characters. No emojis, no quotes, no markdown, no line breaks. Reply with the tip only.\"},{\"role\":\"user\",\"content\":\"Situation: recommendation=SpeedUpSlightly; alert=TimeRunningOut; pace=Behind; slidesRemaining=9; minutesRemaining=5; plannedSlides=20; plannedMinutes=15. Write the tip.\"}],\"max_completion_tokens\":400}";
         Assert.Equal(expected, body);
     }
 
