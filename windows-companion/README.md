@@ -57,19 +57,47 @@ Known limits: Windows may refuse to bring a window forward in rare cases (then n
 
 The companion can ask an external language model to word a very short Spanish tip, which the watch shows in the alert state instead of the usual wording. It is **off by default**, and the product works the same without it. The AI never decides the pace, the alerts or the timing: those stay deterministic, and any failure (no variables, a wrong key, no network, a slow or odd answer) simply shows the usual wording.
 
-1. **Set three environment variables in the PowerShell window where you start the companion.** They live only in that window and are gone when it closes; nothing is written to a file. Use your own values in place of the placeholders:
+1. **Set three environment variables in the PowerShell window where you start the companion.** They live only in that window and are gone when it closes; nothing is written to a file. Use your own values in place of the placeholders. For an OpenAI account:
 
 ```powershell
-$env:PRESENTA_AI_BASE_URL = "https://<your-provider-host>/v1"   # a provider with POST {base}/chat/completions; https is required (http only for this computer)
-$env:PRESENTA_AI_MODEL    = "<model-name>"
+$env:PRESENTA_AI_BASE_URL = "https://api.openai.com/v1"   # a provider with POST {base}/chat/completions; https is required (http only for this computer)
+$env:PRESENTA_AI_MODEL    = "<chat-model-name>"            # prefer a small non-reasoning chat model (see below)
 $env:PRESENTA_AI_API_KEY  = "<your-key>"
 dotnet run --project src/Presenta.Companion.App
 ```
 
-2. **Turn the switch on.** In the window, card "Recomendaciones con IA", switch "Usar IA para redactar las recomendaciones". The status line tells you where you are: "Apagada: se usan las frases de siempre." (configured, switch off), "Lista: se pedirá un texto cuando salte una alerta." (on), "Pidiendo un texto a la IA…" while a request is open, then "Último texto: ..." with the sentence. If the variables are missing or wrong the switch is disabled and the line says why ("No disponible: falta configurar la IA en este computador. Los pasos están en el README de windows-companion.", or the address is not valid, or it does not start with https).
-3. **To turn it off:** switch it off, or close the window. To remove the variables from the PowerShell window: `Remove-Item Env:PRESENTA_AI_API_KEY, Env:PRESENTA_AI_BASE_URL, Env:PRESENTA_AI_MODEL`.
+**Shortcut: a local `.env` file.** Instead of typing the variables each time, copy `.env.example` (project root) to `.env`, put your key after `PRESENTA_AI_API_KEY=`, and start the companion with `.\scripts\run-companion.ps1` from the project root. The script reads simple `NAME=VALUE` lines (blank lines and `#` comments ignored, one pair of surrounding quotes removed), sets only the `PRESENTA_*` values for that run, prints only the names it loaded and whether the key is set (never a value), and then runs the app. `.env` is ignored by Git; the script never writes a file. If `.env` is missing it stops and says so.
 
-**What is sent.** One request when an alert appears or changes (at most one per 15 seconds, 30 per presentation), with a fixed instruction and one line of codes and rounded numbers, for example `Situation: recommendation=SpeedUpSlightly; alert=TimeRunningOut; pace=Behind; slidesRemaining=9; minutesRemaining=5; plannedSlides=20; plannedMinutes=15. Write the tip.` Never the presentation name, window titles, file names or the computer's name. The key goes only in the Authorization header of the request, never in a file, a log, the window or the diagnostic report.
+**Request defaults (current OpenAI chat models).** The request carries `max_completion_tokens` (400) and **no** `temperature`, because reasoning models reject a temperature and the old `max_tokens`. Other compatible providers and local servers may still expect `max_tokens`. Everything below is optional, read once at start, and an empty or out-of-range value is ignored (the default stays):
+
+| Variable | Default | What it does |
+|---|---|---|
+| `PRESENTA_AI_TOKEN_PARAM` | `max_completion_tokens` | Name of the token-limit field: `max_completion_tokens` or `max_tokens`. |
+| `PRESENTA_AI_MAX_TOKENS` | `400` (`.env.example` sets `800`) | Token limit, 16 to 8000. Reasoning models count their hidden reasoning inside it, so a tiny limit can leave no visible answer. The tip itself stays capped at 40 characters. |
+| `PRESENTA_AI_TEMPERATURE` | not sent | A number from 0 to 2. Setting it sends `temperature`. |
+| `PRESENTA_AI_REASONING_EFFORT` | not sent (`.env.example` sets `none`) | A word such as `minimal` or `low`. Setting it sends `reasoning_effort`. Which values exist depends on the model. |
+| `PRESENTA_AI_TIMEOUT_SECONDS` | `8` | How long to wait for one answer, 1 to 30. It never blocks the clock or the commands: the request runs in the background. |
+
+```powershell
+# Optional, only if you need them (placeholders, not recommendations):
+$env:PRESENTA_AI_MAX_TOKENS        = "800"
+$env:PRESENTA_AI_REASONING_EFFORT  = "low"
+$env:PRESENTA_AI_TIMEOUT_SECONDS   = "12"
+# For a local or older server that expects the old field name:
+$env:PRESENTA_AI_TOKEN_PARAM       = "max_tokens"
+$env:PRESENTA_AI_TEMPERATURE       = "0.2"
+```
+
+**Automatic adjustment.** If the provider answers HTTP 400 saying that a parameter that was sent is unsupported or unrecognized (the token-limit name, `temperature` or `reasoning_effort`), the companion repeats the request once without it (or with the other token-limit name) and keeps the shape that worked until the program closes. That repeat counts as one attempt for the rate limit and the pause after errors. Any other 400 is not repeated.
+
+**Recommended `.env` values and why.** `.env.example` turns on two optional lines: `PRESENTA_AI_REASONING_EFFORT=none` and `PRESENTA_AI_MAX_TOKENS=800`. A tip only shows while its alert is active, so latency matters more than quality: a reasoning model that thinks before answering can take longer than the alert lasts, and `none` asks it not to. The token limit of 800 leaves room for a visible answer even if some hidden reasoning is still counted. If your provider rejects `reasoning_effort`, the client retries once without it (inside the same time limit) and remembers the working shape; if it keeps rejecting, delete the line. Delete or lower the token line if the provider rejects it. The first request of each alert starts at once (no 15-second wait), the text is sent to the watch as soon as it arrives, and a text is reused for the same situation for 2 minutes (ADR-81). In a Debug build the timing of each request is written to `%LOCALAPPDATA%\Presenta\timing-debug.log` (see row 109 of the validation guide).
+
+**Which model.** Prefer a small, fast, **non-reasoning chat model**: the tip is one short sentence and does not need to think. If only reasoning models are available, raise `PRESENTA_AI_MAX_TOKENS` (for example 800 to 1500) and, if the model accepts it, set `PRESENTA_AI_REASONING_EFFORT` to a low value such as `minimal` or `low`. If the model spends the whole limit thinking, the answer has no text; the window then says so (see below) and the usual wording is used.
+
+2. **Turn the switch on.** In the window, card "Recomendaciones con IA", switch "Usar IA para redactar las recomendaciones". The status line tells you where you are: "Apagada: se usan las frases de siempre." (configured, switch off), "Lista: se pedirá un texto cuando salte una alerta." (on), "Pidiendo un texto a la IA…" while a request is open, then "Último texto: ..." with the sentence. If the variables are missing or wrong the switch is disabled and the line says why ("No disponible: falta configurar la IA en este computador. Los pasos están en el README de windows-companion.", or the address is not valid, or it does not start with https). When the model answers with no text at all, the line reads "El modelo no devolvió texto: se usan las frases de siempre. Prueba con un modelo de chat que no sea de razonamiento o sube el límite de tokens."
+3. **To turn it off:** switch it off, or close the window. To remove the variables from the PowerShell window: `Remove-Item Env:PRESENTA_AI_API_KEY, Env:PRESENTA_AI_BASE_URL, Env:PRESENTA_AI_MODEL` (and any optional `PRESENTA_AI_*` you set).
+
+**What is sent.** One request when an alert appears or changes (at most one per 15 seconds, 30 per presentation), with a fixed instruction and one line of codes and rounded numbers, plus the token limit (and a temperature or reasoning effort only if you set one), for example `Situation: recommendation=SpeedUpSlightly; alert=TimeRunningOut; pace=Behind; slidesRemaining=9; minutesRemaining=5; plannedSlides=20; plannedMinutes=15. Write the tip.` Never the presentation name, window titles, file names or the computer's name. The key goes only in the Authorization header of the request, never in a file, a log, the window or the diagnostic report.
 
 **Check it yourself (optional).** Point the address at a listener on this computer and read what arrives (http is allowed to loopback only). In a second PowerShell window:
 
@@ -82,6 +110,8 @@ $context.Response.StatusCode = 500; $context.Response.Close(); $listener.Stop()
 and start the companion with `PRESENTA_AI_BASE_URL = "http://127.0.0.1:9099/v1"` (any model name and key).
 
 **Offline, wrong key, slow provider.** The status line shows "En pausa por errores: se usan las frases de siempre." after three failures in a row (for a minute, then one trial request) or "La IA rechazó la clave: se usan las frases de siempre." when the provider refuses the key; the watch keeps showing the usual wording and the presentation is not affected. Turning the switch off and on tries again at once.
+
+**Wrong model symptom.** The status line "El modelo no devolvió texto..." means the provider answered but the text was empty, typically because a reasoning model used the whole token limit. Use a non-reasoning chat model or raise `PRESENTA_AI_MAX_TOKENS`. The same situation is not asked again, and three empty answers in a row pause the requests for a minute like any other failure.
 
 Not tested against a real provider: the automated tests use a local test server and a fake client, never the network (see `../docs/testing-strategy.md`).
 
@@ -143,3 +173,18 @@ Remove it later with `Remove-NetFirewallRule -DisplayName "Presenta"`. Nothing i
 - Real key injection into PowerPoint, Android Studio in the foreground, and the 2-second latency: by hand (see `../docs/validation/validation-guide.md`, rows 30 to 42 and the timing section). The opt-in `Presenta.Desktop.Tests` prove delivery with small test windows only.
 - How the window looks. It was built and started, but not seen.
 - A physical watch, the emulator, and the Windows Firewall.
+
+## Screens and navigation
+
+The window has a rail on the left with six pages; the server status and the start and stop button are at the top of every page.
+
+| Page | Use it to |
+|---|---|
+| Inicio | See in one glance what is ready (watch, presentation window, keys, AI) and follow the presentation (ring, slide, time, pace). Press a row to fix it. |
+| Vincular | Read the pairing code, generate a new one, copy it. |
+| Ventana | Choose the presentation window (the suggested one is first), verify it, copy the diagnostic, refresh the list, turn sending keys on or off. |
+| IA y alertas | Turn the optional AI wording on or off and see its status and last text; see on a timeline when the alerts of a presentation of a chosen length would come. |
+| Actividad | Read the full list of recent events. |
+| Configuración | Remember the pairing code, allow a physical watch on the local network, read the port and addresses. |
+
+Keyboard: Tab goes into the rail, the arrow keys move between pages, Enter or Space opens one. The design tokens and the glass look are described in `docs/ui-direction.md`.
