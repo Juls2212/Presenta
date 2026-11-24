@@ -57,6 +57,21 @@ public class AiRecommendationTests
     }
 
     [Fact]
+    public async Task A_text_that_arrives_mid_alert_is_pushed_at_once_with_the_same_alert_sequence()
+    {
+        await using var rig = await StartAsync(configure: c => c.Hold = new TaskCompletionSource(), options: new AiEnrichmentOptions { RequestTimeout = TimeSpan.FromMinutes(10) });
+        var client = await StartAlertingSessionAsync(rig);
+        await Wait.UntilAsync(() => rig.Client.Calls >= 1, "the request to start");
+        var sequence = rig.Harness.Service.Status.Session!.ActiveAlert!.Sequence;
+
+        rig.Client.Hold!.SetResult(); // the fake clock does not move: no tick can carry the text
+
+        var update = await client.ReceiveUntilAsync<StateUpdateMessage>(HasText);
+        Assert.Equal(sequence, update.Payload.Session!.ActiveAlert!.Sequence);
+        Assert.Equal(1, rig.Client.Calls);
+    }
+
+    [Fact]
     public async Task A_watch_that_connects_later_gets_the_cached_text_with_the_state()
     {
         await using var rig = await StartAsync();
