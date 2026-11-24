@@ -2,6 +2,8 @@
 
 Phases refer to [roadmap.md](roadmap.md). Decisions refer to [decisions.md](decisions.md).
 
+The **final status per requirement** (automated, opt-in, or awaiting manual validation) is the matrix in the root [README.md](../README.md). The per-phase tables below are a history: each shows what the tests of that phase proved, with the counts of that moment.
+
 ## Functional requirements
 
 | Code | Requirement | Phases | Related decisions |
