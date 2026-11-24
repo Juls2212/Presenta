@@ -310,6 +310,61 @@ public class EnricherTests
     }
 
     [Fact]
+    public async Task An_answer_without_text_falls_back_and_says_so_without_asking_again_for_the_same_situation()
+    {
+        var rig = Make(o => o with { MinInterval = TimeSpan.Zero });
+        rig.Client.Answer = AiTextResult.Fail(AiFailureKind.NoText);
+
+        var first = await AskAsync(rig, Distinct(1));
+        await AskAsync(rig, Distinct(1));
+        await AskAsync(rig, Distinct(1));
+
+        Assert.Null(first!.FreeText); // the deterministic wording is what the watch gets
+        Assert.Equal(1, rig.Client.Calls); // same situation: no retry storm
+        Assert.Equal(AiStatus.NoText, rig.Ai.Status);
+    }
+
+    [Fact]
+    public async Task The_no_text_status_lasts_until_a_text_arrives_and_the_breaker_still_opens_after_three()
+    {
+        var rig = Make(o => o with { MinInterval = TimeSpan.Zero });
+        rig.Client.Answer = AiTextResult.Fail(AiFailureKind.NoText);
+        await AskAsync(rig, Distinct(1));
+        await AskAsync(rig, Distinct(2));
+        await AskAsync(rig, Distinct(3));
+
+        Assert.Equal(AiStatus.NoText, rig.Ai.Status); // paused, and the reason is the useful part
+        await AskAsync(rig, Distinct(4));
+        Assert.Equal(3, rig.Client.Calls);
+
+        rig.Time.Advance(TimeSpan.FromSeconds(60));
+        Assert.Equal(AiStatus.NoText, rig.Ai.Status);
+        rig.Client.Answer = AiTextResult.Success("Now there is a text");
+        var result = await AskAsync(rig, Distinct(5));
+
+        Assert.Equal("Now there is a text", result!.FreeText);
+        Assert.Equal(AiStatus.Ready, rig.Ai.Status);
+    }
+
+    [Fact]
+    public async Task A_different_failure_replaces_the_no_text_status()
+    {
+        var rig = Make(o => o with { MinInterval = TimeSpan.Zero });
+        rig.Client.Answer = AiTextResult.Fail(AiFailureKind.NoText);
+        await AskAsync(rig, Distinct(1));
+        rig.Client.Answer = AiTextResult.Fail(AiFailureKind.Timeout);
+        await AskAsync(rig, Distinct(2));
+
+        Assert.Equal(AiStatus.Ready, rig.Ai.Status);
+    }
+
+    [Fact]
+    public void The_default_safety_timeout_is_above_the_largest_client_timeout()
+    {
+        Assert.True(new AiEnrichmentOptions().RequestTimeout > TimeSpan.FromSeconds(AiDefaults.MaxTimeoutSeconds));
+    }
+
+    [Fact]
     public async Task A_success_resets_the_failure_count()
     {
         var rig = Make(o => o with { MinInterval = TimeSpan.Zero });
@@ -421,7 +476,7 @@ public class EnricherTests
     [Fact]
     public async Task A_provider_that_never_answers_times_out_on_fake_time_and_counts_as_a_failure()
     {
-        var rig = Make(o => o with { MinInterval = TimeSpan.Zero });
+        var rig = Make(o => o with { MinInterval = TimeSpan.Zero, RequestTimeout = TimeSpan.FromSeconds(5) });
         rig.Client.Hold = new TaskCompletionSource();
 
         rig.Ai.Apply(Distinct(1));
