@@ -31,12 +31,18 @@ public enum AiStatus
 
     /// <summary>The provider refused the key (401 or 403).</summary>
     InvalidKey,
+
+    /// <summary>The last answer was well formed but had no visible text (typically a reasoning model that used up the token limit).</summary>
+    NoText,
 }
 
 /// <summary>Limits of the enricher. Every default is the documented value (ADR-76).</summary>
 public sealed record AiEnrichmentOptions
 {
-    /// <summary>At most one request in this time.</summary>
+    /// <summary>
+    /// At most one request in this time. The first request of each alert sequence is exempt (ADR-81): that is the one the
+    /// alert is waiting for.
+    /// </summary>
     public TimeSpan MinInterval { get; init; } = TimeSpan.FromSeconds(15);
 
     /// <summary>At most this many requests per presentation.</summary>
@@ -53,11 +59,17 @@ public sealed record AiEnrichmentOptions
 
     public TimeSpan RateLimitBackoffMax { get; init; } = TimeSpan.FromMinutes(5);
 
-    /// <summary>The enricher gives up on a request after this long, whatever the client does.</summary>
-    public TimeSpan RequestTimeout { get; init; } = TimeSpan.FromSeconds(5);
+    /// <summary>
+    /// The enricher gives up on a request after this long, whatever the client does. A safety net above the client's own
+    /// timeout (8 s by default, 30 s at most), which is the one that normally ends a slow request.
+    /// </summary>
+    public TimeSpan RequestTimeout { get; init; } = TimeSpan.FromSeconds(35);
 
     /// <summary>Texts kept by situation.</summary>
     public int CacheSize { get; init; } = 16;
+
+    /// <summary>How long a text may be reused for the same situation (ADR-81). Measured from the moment it was stored.</summary>
+    public TimeSpan CacheTimeToLive { get; init; } = TimeSpan.FromSeconds(120);
 }
 
 /// <summary>
@@ -79,7 +91,8 @@ public sealed class AiRecommendationEnricher
     private readonly TimeProvider _time;
     private readonly ILogger _log;
     private readonly object _gate = new();
-    private readonly Dictionary<string, string> _cache = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, CacheEntry> _cache = new(StringComparer.Ordinal);
+    private readonly HashSet<int> _requestedSequences = new();
     private readonly Queue<string> _cacheOrder = new();
 
     private bool _enabled;
@@ -91,8 +104,27 @@ public sealed class AiRecommendationEnricher
     private int _consecutiveFailures;
     private int _rateLimitHits;
     private bool _keyRefused;
+    private bool _lastWasNoText;
     private int _calls;
     private string? _lastText;
+    private TimeSpan? _lastLatency;
+    private int? _activeSequence;
+    private DateTimeOffset _activeSeenAt;
+    private LiveText? _live;
+
+    /// <summary>True in Debug builds only: each request then writes one timing line (no payload, no response text).</summary>
+#if DEBUG
+    public const bool TimingDiagnosticsEnabled = true;
+#else
+    public const bool TimingDiagnosticsEnabled = false;
+#endif
+
+    private sealed record CacheEntry(string Text, DateTimeOffset StoredAt);
+
+    // A text that arrived while the alert it was requested for was still active. It belongs to that sequence only.
+    private sealed record LiveText(int Sequence, string Code, string Kind, string Text);
+
+    private sealed record RequestContext(int Sequence, string Code, string Kind, DateTimeOffset StartedAt, TimeSpan AlertToRequest);
 
     public AiRecommendationEnricher(
         IAiTextClient? client,
@@ -144,6 +176,7 @@ public sealed class AiRecommendationEnricher
                 _consecutiveFailures = 0;
                 _rateLimitHits = 0;
                 _keyRefused = false;
+                _lastWasNoText = false;
                 _lastRequestedKey = null;
             }
 
@@ -159,6 +192,18 @@ public sealed class AiRecommendationEnricher
             lock (_gate)
             {
                 return _lastText;
+            }
+        }
+    }
+
+    /// <summary>How long the request that produced <see cref="LastText"/> took. Null until there is a text.</summary>
+    public TimeSpan? LastLatency
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _lastLatency;
             }
         }
     }
@@ -203,10 +248,15 @@ public sealed class AiRecommendationEnricher
 
                 if (_time.GetUtcNow() < _pausedUntil)
                 {
-                    return AiStatus.Paused;
+                    return _lastWasNoText ? AiStatus.NoText : AiStatus.Paused;
                 }
 
-                return _inFlight ? AiStatus.Working : AiStatus.Ready;
+                if (_inFlight)
+                {
+                    return AiStatus.Working;
+                }
+
+                return _lastWasNoText ? AiStatus.NoText : AiStatus.Ready;
             }
         }
     }
@@ -228,6 +278,9 @@ public sealed class AiRecommendationEnricher
             _calls = 0;
             _cache.Clear();
             _cacheOrder.Clear();
+            _requestedSequences.Clear();
+            _activeSequence = null;
+            _live = null;
             _lastRequestedKey = null;
             _lastCallAt = null;
         }
@@ -242,58 +295,110 @@ public sealed class AiRecommendationEnricher
     public Recommendation? Apply(SessionSnapshot snapshot)
     {
         var recommendation = snapshot.Recommendation;
-        if (recommendation is null || snapshot.ActiveAlert is not { } alert)
-        {
-            return recommendation;
-        }
-
+        var alert = snapshot.ActiveAlert;
         lock (_gate)
         {
-            if (!_enabled || _client is null)
+            var now = _time.GetUtcNow();
+            TrackSequence(alert?.Sequence, now);
+            if (recommendation is null || alert is null || !_enabled || _client is null)
             {
                 return recommendation;
             }
 
+            var code = recommendation.Code.ToString();
+            var kind = alert.Kind.ToString();
             var situation = AiSituation.Create(
-                recommendation.Code.ToString(),
-                alert.Kind.ToString(),
+                code,
+                kind,
                 snapshot.PaceStatus.ToString(),
                 snapshot.SlidesRemaining,
                 snapshot.RemainingMs / 1000,
                 snapshot.TotalSlides,
                 snapshot.PlannedDurationMs / 1000);
             var key = situation.Key;
-            if (_cache.TryGetValue(key, out var text))
+            if (TryGetCached(key, now, out var text))
             {
                 return recommendation with { FreeText = text };
             }
 
-            TryStart(situation, key);
+            // The key holds rounded minutes, so it can change while a slow answer is on its way. The text still belongs to
+            // the alert it was asked for, as long as that alert (and its recommendation) is the one on screen.
+            // A request for the new figures may still start (same guards as always); until it answers, the text stays.
+            TryStart(situation, key, new RequestContext(alert.Sequence, code, kind, now, TimeSpan.Zero));
+            if (_live is { } live && live.Sequence == alert.Sequence && live.Code == code && live.Kind == kind)
+            {
+                return recommendation with { FreeText = live.Text };
+            }
+
             return recommendation;
         }
     }
 
     // Call with the lock held.
-    private void TryStart(AiSituation situation, string key)
+    private void TrackSequence(int? sequence, DateTimeOffset now)
     {
-        var now = _time.GetUtcNow();
+        if (sequence == _activeSequence)
+        {
+            return;
+        }
+
+        _activeSequence = sequence;
+        _activeSeenAt = now;
+        if (_live is not null && _live.Sequence != sequence)
+        {
+            _live = null;
+        }
+    }
+
+    // Call with the lock held.
+    private bool TryGetCached(string key, DateTimeOffset now, out string text)
+    {
+        if (_cache.TryGetValue(key, out var entry))
+        {
+            if (now - entry.StoredAt <= _options.CacheTimeToLive)
+            {
+                text = entry.Text;
+                return true;
+            }
+
+            // Expired: forget it, and allow a new request for this situation.
+            _cache.Remove(key);
+            if (string.Equals(_lastRequestedKey, key, StringComparison.Ordinal))
+            {
+                _lastRequestedKey = null;
+            }
+        }
+
+        text = string.Empty;
+        return false;
+    }
+
+    // Call with the lock held.
+    private void TryStart(AiSituation situation, string key, RequestContext context)
+    {
+        var now = context.StartedAt;
+        // The first request of an alert sequence starts at once, whatever happened before: the alert is waiting for it.
+        // Every other guard (one in flight, the cap, the breaker pause) still applies and still counts it.
+        var firstOfSequence = !_requestedSequences.Contains(context.Sequence);
         if (_inFlight
-            || string.Equals(key, _lastRequestedKey, StringComparison.Ordinal)
+            || (!firstOfSequence && string.Equals(key, _lastRequestedKey, StringComparison.Ordinal))
             || _calls >= _options.MaxCallsPerSession
             || now < _pausedUntil
-            || (_lastCallAt is { } last && now - last < _options.MinInterval))
+            || (!firstOfSequence && _lastCallAt is { } last && now - last < _options.MinInterval))
         {
             return;
         }
 
         _inFlight = true;
+        _requestedSequences.Add(context.Sequence);
         _lastRequestedKey = key;
         _lastCallAt = now;
         _calls++;
-        _pending = Task.Run(() => RunAsync(situation, key));
+        var started = context with { AlertToRequest = _activeSequence == context.Sequence ? now - _activeSeenAt : TimeSpan.Zero };
+        _pending = Task.Run(() => RunAsync(situation, key, started));
     }
 
-    private async Task RunAsync(AiSituation situation, string key)
+    private async Task RunAsync(AiSituation situation, string key, RequestContext context)
     {
         RaiseChanged(); // "working"
         AiTextResult result;
@@ -314,27 +419,59 @@ public sealed class AiRecommendationEnricher
         }
 
         var newText = false;
+#if DEBUG
+        var duringAlert = false; // only read by the timing log below
+#endif
+        var outcome = "Accepted";
+        TimeSpan duration;
         lock (_gate)
         {
             _inFlight = false;
+            var finished = _time.GetUtcNow();
+            duration = finished - context.StartedAt;
             var text = result.Succeeded ? AiTextSanitizer.Sanitize(result.Text) : null;
             if (text is not null)
             {
-                Remember(key, text);
+                // Always kept for reuse; shown only if the alert it was asked for is still the active one (ADR-81).
+                Remember(key, text, finished);
                 _lastText = text;
+                _lastLatency = duration;
+                if (_activeSequence == context.Sequence)
+                {
+                    _live = new LiveText(context.Sequence, context.Code, context.Kind, text);
+#if DEBUG
+                    duringAlert = true;
+#endif
+                }
+
                 _consecutiveFailures = 0;
                 _rateLimitHits = 0;
                 _keyRefused = false;
+                _lastWasNoText = false;
                 newText = true;
                 _log.LogInformation("AI request finished: accepted.");
             }
             else
             {
                 var kind = result.Failure ?? AiFailureKind.Malformed; // an unusable text counts as a malformed answer
+                outcome = kind.ToString();
+                _lastWasNoText = kind == AiFailureKind.NoText;
                 OnFailure(kind, result.RetryAfter);
             }
         }
 
+#if DEBUG
+        // Timing only: no prompt, no answer, no key. The code is the recommendation code, not text.
+        _log.LogInformation(
+            "PresentaTiming ai sequence={Sequence} code={Code} alertToRequestMs={AlertToRequestMs} requestMs={RequestMs} attempts={Attempts} outcome={Outcome} duringAlert={DuringAlert}",
+            context.Sequence,
+            context.Code,
+            (long)context.AlertToRequest.TotalMilliseconds,
+            (long)duration.TotalMilliseconds,
+            result.Attempts,
+            outcome,
+            duringAlert);
+#endif
         RaiseChanged();
         if (newText)
         {
@@ -384,9 +521,10 @@ public sealed class AiRecommendationEnricher
     }
 
     // Call with the lock held.
-    private void Remember(string key, string text)
+    private void Remember(string key, string text, DateTimeOffset now)
     {
-        if (_cache.TryAdd(key, text))
+        _cache[key] = new CacheEntry(text, now);
+        if (!_cacheOrder.Contains(key))
         {
             _cacheOrder.Enqueue(key);
             while (_cacheOrder.Count > _options.CacheSize)
