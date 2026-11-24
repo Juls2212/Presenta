@@ -72,6 +72,26 @@ class HapticsCoordinatorTest {
     }
 
     @Test
+    fun a_free_text_that_appears_in_the_middle_of_an_alert_does_not_vibrate_again() {
+        // The companion sends a new state with the same alert sequence when the optional text arrives.
+        coordinator.onSession(running)
+        coordinator.onSession(status(warning))
+        val withText = status(warning, elapsedMs = 101_000).let { active ->
+            active.copy(
+                snapshot = active.snapshot.copy(
+                    recommendation = com.presenta.wear.model.Recommendation(
+                        com.presenta.wear.model.RecommendationCode.SpeedUpSlightly, 7, 500_000, freeText = "Tip",
+                    ),
+                ),
+            )
+        }
+        coordinator.onSession(withText)
+        coordinator.onSession(withText)
+
+        assertEquals(listOf(HapticPattern.Warning), player.played)
+    }
+
+    @Test
     fun acknowledging_plays_nothing() {
         coordinator.onSession(running)
         coordinator.onSession(status(warning))
