@@ -13,7 +13,7 @@
 #>
 [CmdletBinding()]
 param(
-    [string[]]$Files = @('docs/validation/validation-guide.md', 'docs/manual-test-guide.md')
+    [string[]]$Files = @('docs/validation/validation-guide.md', 'docs/manual-test-guide.md', 'docs/validation/smoke-test.md', 'docs/validation/accessibility-report.md', 'docs/delivery/demo-script.md')
 )
 
 $ErrorActionPreference = 'Stop'
