@@ -1,0 +1,75 @@
+<UserControl x:Class="Presenta.Companion.App.Views.WindowPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel>
+        <TextBlock Text="{Binding Title}" Style="{StaticResource PageTitle}" AutomationProperties.HeadingLevel="Level1" />
+        <TextBlock Text="{Binding Lead}" Style="{StaticResource PageLead}" />
+
+        <Border Style="{StaticResource GlassPanel}">
+            <StackPanel>
+                <!-- The window list: only when the window system is available -->
+                <StackPanel DataContext="{Binding List}" Visibility="{Binding DataContext.HasList, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="{Binding DataContext.Main.Labels.TargetKeysOff, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                               Foreground="{DynamicResource AmberBrush}" FontSize="14" TextWrapping="Wrap" Margin="0,0,0,12"
+                               Visibility="{Binding Target.KeysOffNoteVisible, Converter={StaticResource BoolToVisibility}}" />
+
+                    <ListBox x:Name="SuggestedList" ItemsSource="{Binding Suggested}" Style="{StaticResource WindowList}"
+                             AutomationProperties.Name="{Binding DataContext.Main.Labels.WindowListName, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                             Visibility="{Binding HasSuggested, Converter={StaticResource BoolToVisibility}}" />
+                    <ListBox x:Name="PresentationList" ItemsSource="{Binding Presentation}" Style="{StaticResource WindowList}"
+                             AutomationProperties.Name="{Binding DataContext.Main.Labels.WindowListName, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                             Visibility="{Binding HasPresentation, Converter={StaticResource BoolToVisibility}}" />
+
+                    <Expander x:Name="OthersExpander" Style="{StaticResource PlainExpander}" Header="{Binding OthersLabel}"
+                              IsExpanded="{Binding OthersExpanded, Mode=TwoWay}"
+                              Visibility="{Binding HasOthers, Converter={StaticResource BoolToVisibility}}">
+                        <ListBox x:Name="OthersList" ItemsSource="{Binding Others}" Style="{StaticResource WindowList}"
+                                 AutomationProperties.Name="{Binding DataContext.Main.Labels.WindowOthersListName, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                    </Expander>
+
+                    <TextBlock Text="{Binding DataContext.Main.Labels.TargetEmpty, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                               Style="{StaticResource Hint}" Margin="4,6,0,0"
+                               Visibility="{Binding Target.HasNoItems, Converter={StaticResource BoolToVisibility}}" />
+
+                    <!-- Status line: a mark, then the words -->
+                    <StackPanel Orientation="Horizontal" Margin="0,16,0,8">
+                        <ContentControl Style="{StaticResource DotMark}" Content="{Binding Target.Severity}" Margin="0,0,10,0" VerticalAlignment="Top" />
+                        <TextBlock Text="{Binding Target.StatusText}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource StatusLine}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Target.IsGood}" Value="True">
+                                            <Setter Property="Foreground" Value="{DynamicResource CyanBrush}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Target.IsWarning}" Value="True">
+                                            <Setter Property="Foreground" Value="{DynamicResource AmberBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+                    <TextBlock Text="{Binding Target.NotSlideShowWarning}" Foreground="{DynamicResource AmberBrush}" FontSize="14"
+                               TextWrapping="Wrap" Margin="0,0,0,10" AutomationProperties.LiveSetting="Polite"
+                               Visibility="{Binding Target.HasNotSlideShowWarning, Converter={StaticResource BoolToVisibility}}" />
+
+                    <WrapPanel Margin="0,4,0,0">
+                        <Button Content="{Binding DataContext.Main.Labels.TargetVerify, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                Command="{Binding Target.VerifyCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,10,8" />
+                        <Button Content="{Binding DataContext.Main.Labels.TargetDiagnostic, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                Command="{Binding Target.CopyDiagnosticCommand}" Style="{StaticResource GlassButton}" Margin="0,0,10,8" />
+                        <Button Content="{Binding DataContext.Main.Labels.TargetRefresh, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                Command="{Binding Target.RefreshCommand}" Style="{StaticResource GlassButton}" Margin="0,0,10,8" />
+                    </WrapPanel>
+
+                    <Border Style="{StaticResource Divider}" />
+                </StackPanel>
+
+                <!-- Send keys: always reachable, with or without the list -->
+                <CheckBox Style="{StaticResource Switch}" Content="{Binding Main.Labels.SendKeysToggle}"
+                          IsChecked="{Binding Main.SendKeys, Mode=TwoWay}" />
+                <TextBlock Text="{Binding Main.Labels.SendKeysHint}" Style="{StaticResource Hint}" Margin="56,2,0,0" />
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>
