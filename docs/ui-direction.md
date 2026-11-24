@@ -127,3 +127,32 @@ The Control ring represents **elapsed time**: elapsed divided by planned duratio
 - Color is never the only signal (icons and text accompany every state).
 - Designed for round screens: about 227 dp (Large Round), also checked at about 192 dp (Small Round).
 - No generic dashboard look.
+
+## Desktop companion window (Phase 11)
+
+The watch direction above is unchanged. This section is the direction of the Windows window. The visual and structural reference is the approved static mockup `docs/mockups/presenta-escritorio-v3.html`; the window is native WPF (no web view, no copied HTML), and the sample data of the mockup is illustrative only.
+
+**Structure.** A left navigation rail with six items (Inicio, Vincular, Ventana, IA y alertas, Actividad, and Configuración alone at the bottom) and a content area that shows one page at a time. The selected item has a cyan bar at its left edge. Vincular, Ventana and IA y alertas carry a small status dot (watch connected or waiting; window ready or not; AI ready, off or in trouble). The server status and its start and stop button stay at the top of every page, with the server error under them.
+
+| Page | What it holds |
+|---|---|
+| Inicio | One glass panel in two halves, no cards inside it. Left: the checklist "Antes de empezar" (watch, presentation window, keys, AI), each row a button that opens its page. Right: the session in progress (progress ring, slide, elapsed and remaining time, pace pill, pause) or an empty state. Below the panel, without a card, the newest three activity lines and a button to the full list. |
+| Vincular | The six digits of the pairing code in separate boxes, "Generar código nuevo", "Copiar código", and a diagram of watch, this computer and presentation whose links move only while the watch is connected (and never when Windows asks to reduce animations). |
+| Ventana | The suggested slide show first and highlighted, other PowerPoint windows next, all remaining windows in a collapsed group. "Verificar", "Copiar diagnóstico", "Actualizar lista", the status line and the send-keys switch. |
+| IA y alertas | The optional AI section (switch, status, last text with its latency, privacy sentence) and a didactic timeline "Así te avisa Presenta": a stepper of 1 to 60 minutes and markers for the running-out, critical and overtime alerts, taken from the domain's own thresholds. |
+| Actividad | The full recent-activity list, newest first. |
+| Configuración | Remember the code, allow a physical watch on the local network, port and addresses. |
+
+**Tokens.** Every color, radius, spacing and font size is in `Themes/Tokens.xaml`; styles are in `Themes/Controls.xaml` and use only token keys. No color value appears in a page, in a style or in code (a test enforces it). Palette: graphite `#14161B` to `#1C2028`, ink `#ECEFF4`, muted `#A3ABBA`, dim `#8A93A5`, cyan `#22D3EE`, amber `#FFB020`, orange `#FF8A3D`, red `#FF5C5C`, ok `#5BE3A0`. The dim text color is slightly lighter than the mockup's `#7C8596`, which fell below 4.5:1 on the glass panel. Cyan is only the accent (primary button, selection, ring, code underline, focus). Amber, orange and red are only for alerts and warnings.
+
+**Glass.** A panel is a translucent white fill (about 5.5%) over the graphite background, a thin light border that is brighter at the top, and a generous radius. Real blur (the Windows 11 system backdrop) is **not implemented**: it cannot be checked without showing the window, and the flat translucent look is the designed fallback on every Windows version. Nothing blocks startup because of it.
+
+**Accessibility.** Every text pair is checked at 4.5:1 and every graphic at 3:1 over the surfaces it sits on (`DesignTokenTests`, computed from the token file). Every interactive element has a spoken name from the resource file, shows a cyan focus ring and is at least 32 px in both directions (`UiSmokeTests`). Status never relies on color alone: every status mark has its own shape (filled circle, triangle, ring, diamond) and a word. With Windows high contrast on, the tokens give way to system colors. Arrow keys move between navigation items; Enter or Space opens one.
+
+**Not verified by eye.** The pictures in `docs/ui-previews/desktop/` are rendered offscreen from the real controls with fake data; how the window looks on your monitor, with your scaling and fonts, is checked in rows 110 to 118 of the validation guide.
+
+**Icon and logo (Phase 13).** The application icon is `Assets/presenta.ico` (a cyan progress ring with a white center dot on a rounded graphite square; sizes 16, 24, 32, 48, 64, 128 and 256). It is the executable's icon (`ApplicationIcon`) and the main window's icon, so the title bar, the taskbar and Explorer show it. The logo next to the name in the rail reproduces the same artwork as vectors (`BrandLogo` style in `Themes/Controls.xaml`: rounded square, track ring, 300-degree arc, dot), colored only with token brushes, so it stays sharp at any scaling.
+
+**Inicio layout rule (Phase 13).** The page is as tall as the visible area at least, and its content (title, panel, recent activity) is centered vertically in it with a maximum width of 900 px, so a tall window does not leave an empty area below. When the window is short (the 900 x 600 minimum) the page scrolls as before.
+
+**Checklist verification rule (Phase 13).** In the Inicio checklist the row "Ventana de la presentación" shows success only when the chosen window was verified in this run (a successful "Verificar" for that same window). A window that is only saved from a previous run, or was chosen by itself, shows the warning mark with the hint to verify; the "Ventana" dot in the rail follows the same rule. This is display only: how the target is stored, chosen, verified and used to send keys did not change, and the "Teclas" row still follows whether a usable window exists.
