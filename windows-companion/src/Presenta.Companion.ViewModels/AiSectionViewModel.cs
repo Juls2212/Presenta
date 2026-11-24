@@ -78,7 +78,7 @@ public sealed class AiSectionViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>Paused, refused key, or not available: the status is colored as a warning.</summary>
-    public bool IsProblem => _status is AiStatus.Paused or AiStatus.InvalidKey or AiStatus.InvalidAddress or AiStatus.InsecureAddress;
+    public bool IsProblem => _status is AiStatus.Paused or AiStatus.InvalidKey or AiStatus.NoText or AiStatus.InvalidAddress or AiStatus.InsecureAddress;
 
     public bool IsGood => _status is AiStatus.Ready or AiStatus.Working;
 
@@ -102,6 +102,11 @@ public sealed class AiSectionViewModel : ObservableObject, IDisposable
         Raise(nameof(CanToggle));
         Status = status;
         StatusText = UiText.Get("Ai_Status_" + status);
-        LastTextLine = _ai.LastText is { } text ? UiText.Format("Ai_LastText", text) : UiText.Get("Ai_LastTextNone");
+        LastTextLine = (_ai.LastText, _ai.LastLatency) switch
+        {
+            ({ } text, { } latency) => UiText.Format("Ai_LastTextTimed", Math.Round(latency.TotalSeconds, 1), text),
+            ({ } text, null) => UiText.Format("Ai_LastText", text),
+            _ => UiText.Get("Ai_LastTextNone"),
+        };
     }
 }
