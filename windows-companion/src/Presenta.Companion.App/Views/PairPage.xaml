@@ -1,0 +1,87 @@
+<UserControl x:Class="Presenta.Companion.App.Views.PairPage"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <Style x:Key="LinkLine" TargetType="Line">
+            <Setter Property="Stroke" Value="{DynamicResource DimBrush}" />
+            <Setter Property="StrokeDashArray" Value="1 4" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Main.WatchConnected}" Value="True">
+                    <Setter Property="Stroke" Value="{DynamicResource CyanBrush}" />
+                    <Setter Property="StrokeDashArray" Value="3 3" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+    <StackPanel>
+        <TextBlock Text="{Binding Title}" Style="{StaticResource PageTitle}" AutomationProperties.HeadingLevel="Level1" />
+        <TextBlock Text="{Binding Lead}" Style="{StaticResource PageLead}" />
+
+        <Border Style="{StaticResource GlassPanel}">
+            <StackPanel HorizontalAlignment="Center">
+                <!-- The six digits, one box each -->
+                <ItemsControl ItemsSource="{Binding Main.PairingDigits}" HorizontalAlignment="Center" Margin="0,6,0,10"
+                              AutomationProperties.Name="{Binding Main.PairingCodeSpoken}" Focusable="False">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource DigitBox}">
+                                <TextBlock Text="{Binding}" FontFamily="{StaticResource MonoFont}" FontSize="{StaticResource SizeDigit}"
+                                           FontWeight="Bold" Foreground="{DynamicResource InkBrush}" HorizontalAlignment="Center"
+                                           VerticalAlignment="Center" />
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="{Binding Main.Labels.PairingHint}" Style="{StaticResource Hint}" HorizontalAlignment="Center" />
+
+                <!-- Watch, this computer, presentation. The links move only while the watch is connected. -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,28,0,10"
+                            AutomationProperties.Name="{Binding Main.Labels.PairDiagramName}">
+                    <StackPanel HorizontalAlignment="Center" Width="96">
+                        <Border Width="48" Height="48" CornerRadius="14" Background="{DynamicResource GlassStrongBrush}"
+                                BorderBrush="{DynamicResource GlassLineBrush}" BorderThickness="1">
+                            <Path Data="{StaticResource Icon_NodeWatch}" Stroke="{DynamicResource InkBrush}" StrokeThickness="1.6" Width="22" Height="22"
+                                  Stretch="Uniform" StrokeLineJoin="Round" />
+                        </Border>
+                        <TextBlock Text="{Binding Main.Labels.WatchTitle}" Style="{StaticResource Hint}" HorizontalAlignment="Center" Margin="0,6,0,0" />
+                    </StackPanel>
+                    <Line x:Name="LinkOne" Style="{StaticResource LinkLine}" X1="0" X2="120" Y1="0" Y2="0" StrokeThickness="2" Margin="8,0,8,22" VerticalAlignment="Center" />
+                    <StackPanel HorizontalAlignment="Center" Width="96">
+                        <Border Width="48" Height="48" CornerRadius="14" Background="{DynamicResource GlassStrongBrush}"
+                                BorderBrush="{DynamicResource GlassLineBrush}" BorderThickness="1">
+                            <Path Data="{StaticResource Icon_NodeComputer}" Stroke="{DynamicResource InkBrush}" StrokeThickness="1.6" Width="22" Height="22"
+                                  Stretch="Uniform" StrokeLineJoin="Round" />
+                        </Border>
+                        <TextBlock Text="{Binding Main.Labels.PairNodeComputer}" Style="{StaticResource Hint}" HorizontalAlignment="Center" Margin="0,6,0,0" />
+                    </StackPanel>
+                    <Line x:Name="LinkTwo" Style="{StaticResource LinkLine}" X1="0" X2="120" Y1="0" Y2="0" StrokeThickness="2" Margin="8,0,8,22" VerticalAlignment="Center" />
+                    <StackPanel HorizontalAlignment="Center" Width="96">
+                        <Border Width="48" Height="48" CornerRadius="14" Background="{DynamicResource GlassStrongBrush}"
+                                BorderBrush="{DynamicResource GlassLineBrush}" BorderThickness="1">
+                            <Path Data="{StaticResource Icon_NodePresentation}" Stroke="{DynamicResource InkBrush}" StrokeThickness="1.6" Width="22" Height="22"
+                                  Stretch="Uniform" StrokeLineJoin="Round" />
+                        </Border>
+                        <TextBlock Text="{Binding Main.Labels.SessionTitle}" Style="{StaticResource Hint}" HorizontalAlignment="Center" Margin="0,6,0,0" />
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
+                    <ContentControl Style="{StaticResource DotMark}" Content="{Binding Main.WatchConnected}" Margin="0,0,8,0" />
+                    <TextBlock Text="{Binding Main.WatchStatusText}" Style="{StaticResource StatusLine}" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,16,0,0">
+                    <Button Content="{Binding Main.Labels.PairingRegenerate}" Command="{Binding Main.RegenerateCodeCommand}"
+                            Style="{StaticResource PrimaryButton}" Margin="0,0,10,0" />
+                    <Button Content="{Binding Main.Labels.PairCopy}" Command="{Binding Main.CopyCodeCommand}" Style="{StaticResource GlassButton}" />
+                </StackPanel>
+                <TextBlock Text="{Binding Main.CopyFeedback}" Style="{StaticResource StatusLine}" HorizontalAlignment="Center" Margin="0,10,0,0"
+                           Visibility="{Binding Main.HasCopyFeedback, Converter={StaticResource BoolToVisibility}}" />
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>
