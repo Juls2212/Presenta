@@ -65,6 +65,8 @@ public sealed class TargetSelectionViewModel : ObservableObject
     private bool _chooseOne;
     private string _listKey = string.Empty;
     private string? _notSlideShowWarning;
+    private long _verifiedHandle;
+    private bool _isVerified;
 
     public TargetSelectionViewModel(PresentationTargetService service, IUiDispatcher dispatcher, IClipboard? clipboard = null)
     {
@@ -121,6 +123,17 @@ public sealed class TargetSelectionViewModel : ObservableObject
     {
         get => _statusText;
         private set => SetProperty(ref _statusText, value);
+    }
+
+    /// <summary>
+    /// True when the chosen window was verified in this run (Verify brought it to the front) and is still the chosen, usable
+    /// window. A choice that was only saved or picked automatically is not verified. This is display state only: it changes
+    /// nothing about how the target is stored, selected or used to send keys.
+    /// </summary>
+    public bool IsVerified
+    {
+        get => _isVerified;
+        private set => SetProperty(ref _isVerified, value);
     }
 
     public TargetSeverity Severity
@@ -275,6 +288,9 @@ public sealed class TargetSelectionViewModel : ObservableObject
             TargetState.NoneSelected => TargetSeverity.Neutral,
             _ => TargetSeverity.Warning,
         };
+        IsVerified = state is TargetState.Ready or TargetState.Minimized
+            && _verifiedHandle != 0
+            && resolution.Window?.Handle == _verifiedHandle;
     }
 
     private static bool IsPowerPointButNotSlideShow(WindowInfo window) =>
@@ -292,6 +308,8 @@ public sealed class TargetSelectionViewModel : ObservableObject
             {
                 StatusText = UiText.Get("Target_Verify_Ok");
                 Severity = TargetSeverity.Good;
+                _verifiedHandle = _service.Resolve().Window?.Handle ?? 0;
+                IsVerified = _verifiedHandle != 0;
                 return;
             }
 
@@ -305,6 +323,8 @@ public sealed class TargetSelectionViewModel : ObservableObject
                 _ => "Target_Verify_Refused",
             });
             Severity = result.Outcome == ActivationOutcome.NoTargetSelected ? TargetSeverity.Neutral : TargetSeverity.Warning;
+            _verifiedHandle = 0;
+            IsVerified = false;
         });
     }
 
