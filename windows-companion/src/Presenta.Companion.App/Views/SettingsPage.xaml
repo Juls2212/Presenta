@@ -1,0 +1,32 @@
+<UserControl x:Class="Presenta.Companion.App.Views.SettingsPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel>
+        <TextBlock Text="{Binding Title}" Style="{StaticResource PageTitle}" AutomationProperties.HeadingLevel="Level1" />
+        <TextBlock Text="{Binding Lead}" Style="{StaticResource PageLead}" />
+
+        <Border Style="{StaticResource GlassPanel}">
+            <StackPanel>
+                <CheckBox Style="{StaticResource Switch}" Content="{Binding Main.Labels.RememberCodeToggle}"
+                          IsChecked="{Binding Main.RememberPairingCode, Mode=TwoWay}" />
+                <TextBlock Text="{Binding Main.Labels.RememberCodeHint}" Style="{StaticResource Hint}" Margin="56,2,0,0" />
+
+                <CheckBox Style="{StaticResource Switch}" Content="{Binding Main.Labels.LocalNetworkToggle}"
+                          IsChecked="{Binding Main.AllowLocalNetwork, Mode=TwoWay}" Margin="0,18,0,0" />
+                <TextBlock Text="{Binding Main.Labels.LocalNetworkHint}" Style="{StaticResource Hint}" Margin="56,2,0,0" />
+
+                <Border Style="{StaticResource Divider}" />
+
+                <TextBlock Text="{Binding Main.Labels.SettingsTech}" Style="{StaticResource SectionHeading}" AutomationProperties.HeadingLevel="Level2" />
+                <TextBlock Text="{Binding Main.PortText}" Style="{StaticResource Mono}" Foreground="{DynamicResource InkBrush}" />
+                <ItemsControl ItemsSource="{Binding Main.Addresses}" Focusable="False">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" Style="{StaticResource Mono}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>
