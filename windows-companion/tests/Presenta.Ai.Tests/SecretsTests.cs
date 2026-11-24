@@ -96,6 +96,41 @@ public class SecretsTests
         Assert.DoesNotContain(Key, ai.Status.ToString(), StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task The_key_is_never_logged_through_the_adaptive_retry_or_an_empty_answer(bool empty)
+    {
+        // First request: a 400 that echoes the key and names the token parameter. Second: either a good tip or no text.
+        var (logs, ai) = await RunAsync((context, request) =>
+            request.Body.Contains("max_completion_tokens", StringComparison.Ordinal)
+                ? LocalAiServer.Reply(context, 400, "{\"error\":{\"message\":\"Unrecognized request argument supplied: max_completion_tokens " + Key + "\"}}")
+                : empty
+                    ? LocalAiServer.Reply(context, 200, "{\"choices\":[{\"finish_reason\":\"length\",\"message\":{\"content\":\"\"}}]}")
+                    : LocalAiServer.Choice(context, "A short tip here"));
+
+        Assert.NotEmpty(logs);
+        Assert.DoesNotContain(logs, line => line.Contains(Key, StringComparison.Ordinal) || line.Contains("Bearer", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(Key, ai.Status.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain(Key, ai.LastText ?? string.Empty, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_failure_result_and_the_current_shape_never_print_the_key()
+    {
+        await using var server = await LocalAiServer.StartAsync((context, _) =>
+            LocalAiServer.Reply(context, 400, "{\"error\":{\"message\":\"Unsupported value: temperature " + Key + "\"}}"));
+        var client = new OpenAiCompatibleClient(
+            new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false }),
+            new AiEndpointOptions(new Uri(server.BaseUrl), "m", Key) { Temperature = 0.3, ReasoningEffort = "low" });
+
+        var result = await client.GenerateAsync(AiPromptBuilder.Build(AiSituation.Create("OnTrack", null, "OnTrack", 1, 60, 5, 300)), CancellationToken.None);
+
+        Assert.DoesNotContain(Key, result.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain(Key, client.CurrentShape.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain(server.Seen, request => request.Body.Contains(Key, StringComparison.Ordinal));
+    }
+
     [Fact]
     public async Task A_provider_that_echoes_the_key_back_in_its_text_never_gets_it_displayed_or_logged()
     {
