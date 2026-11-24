@@ -79,7 +79,17 @@ public partial class App : Application
             var ai = new AiRecommendationEnricher(aiClient, aiConfiguration.Availability, new AiEnrichmentOptions(), TimeProvider.System, loggerFactory);
             _host = new CompanionHost(options, keyboard, history, TimeProvider.System, loggerFactory, activeSessions, settings, ai);
             var dispatcher = new WpfDispatcher(Dispatcher);
-            _viewModel = new MainViewModel(_host, dispatcher, target: new TargetSelectionViewModel(target, dispatcher, new WpfClipboard()), ai: new AiSectionViewModel(ai, dispatcher));
+            _viewModel = new MainViewModel(_host, dispatcher, target: new TargetSelectionViewModel(target, dispatcher, new WpfClipboard()), ai: new AiSectionViewModel(ai, dispatcher), clipboard: new WpfClipboard());
+
+            // High contrast: the design tokens give way to the system colors, now and whenever the setting changes.
+            HighContrastTokens.Apply(Resources);
+            SystemParameters.StaticPropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName == nameof(SystemParameters.HighContrast))
+                {
+                    Dispatcher.BeginInvoke(() => HighContrastTokens.Apply(Resources));
+                }
+            };
 
             var window = new MainWindow { DataContext = _viewModel };
             MainWindow = window;
