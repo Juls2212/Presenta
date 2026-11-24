@@ -36,6 +36,9 @@ public enum AiFailureKind
 
     /// <summary>Any other refusal (other 4xx, a redirect).</summary>
     Rejected,
+
+    /// <summary>The answer was well formed but had no visible text (for example a reasoning model that spent the whole token limit thinking).</summary>
+    NoText,
 }
 
 /// <summary>The two messages of one request. The user message holds only aggregate numbers and codes.</summary>
@@ -44,6 +47,9 @@ public sealed record AiPrompt(string System, string User);
 /// <summary>Result of one request: the raw text of the model, or the kind of failure.</summary>
 public sealed record AiTextResult(string? Text, AiFailureKind? Failure, TimeSpan? RetryAfter = null)
 {
+    /// <summary>How many HTTP requests the answer took: 2 when the client retried once without a rejected parameter. For diagnostics only.</summary>
+    public int Attempts { get; init; } = 1;
+
     public bool Succeeded => Failure is null;
 
     public static AiTextResult Success(string text) => new(text, null);
