@@ -54,3 +54,12 @@ publish/
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# ---- Local secrets (never commit) ----
+.env
+.env.*
+!.env.example
+
+# ---- Release downloads (committed on purpose) ----
+!releases/
+!releases/*.apk
